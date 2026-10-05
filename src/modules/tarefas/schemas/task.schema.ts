@@ -29,3 +29,7 @@ export const createTaskSchema = taskInputSchema.extend({
 
 // O PUT parcial não aplica os valores padrão usados na criação.
 export const updateTaskSchema = taskInputSchema.partial();
+
+export const taskFiltersSchema = taskSchema
+  .pick({ status: true, prioridade: true, prazo: true })
+  .partial();

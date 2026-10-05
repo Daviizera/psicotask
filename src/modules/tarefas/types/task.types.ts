@@ -2,6 +2,7 @@ import type { z } from "zod";
 
 import type {
   createTaskSchema,
+  taskFiltersSchema,
   taskSchema,
   updateTaskSchema,
 } from "../schemas/task.schema";
@@ -17,3 +18,4 @@ export type CreateTaskInput = z.input<typeof createTaskSchema>;
 export type CreateTaskData = z.output<typeof createTaskSchema>;
 
 export type UpdateTaskInput = z.input<typeof updateTaskSchema>;
+export type TaskFilters = z.output<typeof taskFiltersSchema>;

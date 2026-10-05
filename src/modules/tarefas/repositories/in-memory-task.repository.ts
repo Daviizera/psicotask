@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import type {
   CreateTaskData,
   Task,
+  TaskFilters,
   UpdateTaskInput,
 } from "../types/task.types";
 import type { TaskRepository } from "./task.repository";
@@ -29,8 +30,15 @@ export class InMemoryTaskRepository implements TaskRepository {
     },
   ];
 
-  async findAll(): Promise<Task[]> {
-    return this.tasks.map((task) => ({ ...task }));
+  async findAll(filters: TaskFilters = {}): Promise<Task[]> {
+    return this.tasks
+      .filter(
+        (task) =>
+          (filters.status === undefined || task.status === filters.status) &&
+          (filters.prioridade === undefined || task.prioridade === filters.prioridade) &&
+          (filters.prazo === undefined || task.prazo === filters.prazo),
+      )
+      .map((task) => ({ ...task }));
   }
 
   async findById(id: string): Promise<Task | null> {

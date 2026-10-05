@@ -2,14 +2,15 @@ import type { TaskRepository } from "../repositories/task.repository";
 import type {
   CreateTaskData,
   Task,
+  TaskFilters,
   UpdateTaskInput,
 } from "../types/task.types";
 
 export class TaskService {
   constructor(private readonly taskRepository: TaskRepository) {}
 
-  findAll(): Promise<Task[]> {
-    return this.taskRepository.findAll();
+  findAll(filters?: TaskFilters): Promise<Task[]> {
+    return this.taskRepository.findAll(filters);
   }
 
   findById(id: string): Promise<Task | null> {

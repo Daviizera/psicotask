@@ -1,22 +1,25 @@
-# Modelo físico — preparação para PostgreSQL
+# PostgreSQL, Prisma e psicólogo de desenvolvimento
 
-O modelo usa IDs INTEGER. A migration inicial foi gerada com `--create-only` e
-editada para incluir os quatro CHECKs; ela ainda não foi aplicada. Os módulos em
-`src/` continuam usando os InMemoryRepositories e os contratos atuais.
+O modelo usa IDs INTEGER. A migration inicial foi revisada e aplicada ao banco
+de desenvolvimento `psicotask_dev_v2`, com os quatro CHECKs. O Prisma Client foi
+gerado em `src/generated/prisma`. Os CRUDs continuam usando os
+InMemoryRepositories e os contratos atuais; a infraestrutura Prisma e o seed
+de desenvolvimento ficam preparados separadamente, sem novas migrations.
 
-## Migration inicial pendente de revisão
+## Migration inicial aplicada
 
 - Arquivo: [migration.sql](migrations/20261006133611_init_psicotask/migration.sql).
 - Destino confirmado por leitura: `psicotask_dev_v2`, exclusivamente de desenvolvimento.
 - Antes da geração, o schema `public` estava vazio, sem `_prisma_migrations`.
-- `prisma validate` passou e `prisma migrate dev --name init_psicotask --create-only`
-  gerou o SQL sem sinalizar drift ou reset.
-- Após o comando, uma consulta somente leitura confirmou zero tabelas da aplicação.
-  O Prisma inicializou apenas `_prisma_migrations`, vazia, com zero migrations aplicadas.
+- A aplicação foi autorizada após revisão do SQL gerado em `--create-only`.
+  `_prisma_migrations` registra `20261006133611_init_psicotask` como concluída.
+- Após a aplicação, a auditoria somente leitura confirmou as quatro tabelas,
+  inicialmente vazias, e suas constraints. O seed descrito abaixo insere apenas
+  o psicólogo de desenvolvimento.
 - O SQL usa SERIAL para implementar os quatro IDs INTEGER autoincrementais e
   índices únicos para implementar as três declarações UNIQUE do schema.
-- Os CHECKs foram acrescentados somente ao arquivo local. Nenhum seed, aplicação
-  da migration ou alteração dos módulos do backend foi executado.
+- Os quatro CHECKs acrescentados manualmente ao SQL estão aplicados e validados
+  no PostgreSQL. A infraestrutura não altera o schema ou o SQL dessa migration.
 
 ## Configuração preservada
 
@@ -26,22 +29,80 @@ editada para incluir os quatro CHECKs; ela ainda não foi aplicada. Os módulos 
   variável, a configuração permite validar o schema sem conexão ao banco.
 - `.env.example` contém somente placeholders. `.env` e suas variantes continuam
   ignorados pelo Git; apenas `.env.example` é liberado.
-- O generator `prisma-client` está configurado para produzir ESM em
-  `src/generated/prisma`, ignorado pelo Git. O client não foi gerado nem integrado.
+- O generator `prisma-client` produz ESM em `src/generated/prisma`, ignorado pelo
+  Git. O client já foi gerado e é usado pela infraestrutura descrita abaixo.
+- `jiti` 2.7.0, já disponível na árvore de dependências, é declarado diretamente
+  em `devDependencies` para o seed importar módulos TypeScript e resolver o
+  alias `@/*` conforme `tsconfig.json`.
 - O banco de desenvolvimento foi fornecido pelo responsável pelo projeto.
   As verificações de conexão e estrutura utilizaram transações somente leitura.
 
-Comandos locais desta etapa, sem conexão ao banco:
+Comandos de validação local, sem alterar o banco:
 
 ```powershell
-node node_modules/prisma/build/index.js format
-node node_modules/prisma/build/index.js validate
+npx.cmd prisma validate
+npx.cmd tsc --noEmit
+npx.cmd eslint .
 ```
 
 O script existente `npm.cmd run prisma:validate` também executa a validação.
-TypeScript/ESLint só precisam ser repetidos nesta etapa se suas configurações ou
-arquivos TypeScript forem alterados. A geração desta migration alterou somente
-arquivos de migration e documentação.
+
+## Instância central do Prisma
+
+[src/lib/prisma.ts](../src/lib/prisma.ts) verifica a presença de `DATABASE_URL`
+antes de criar `PrismaPg` e `PrismaClient`. A ausência resulta em erro claro, sem
+imprimir a conexão. A instância reutilizada via `globalThis` evita multiplicar
+clients e pools durante hot reload no Next.js.
+
+O Next.js carrega as variáveis de ambiente da aplicação. O módulo não importa
+`dotenv/config`; o carregamento explícito fica nos scripts Node e na configuração
+da CLI. Essa infraestrutura não troca nenhum container ou repository atual.
+
+## Psicólogo atual provisório
+
+[src/config/development-psychologist.ts](../src/config/development-psychologist.ts)
+centraliza a identidade fictícia usada no seed. Não há ID numérico fixo espalhado
+pelo backend.
+
+A função `getCurrentPsychologistId`, em
+[src/lib/current-psychologist.ts](../src/lib/current-psychologist.ts), busca o
+registro pelo email centralizado, seleciona somente `id` e informa um erro caso
+o seed ainda não tenha sido executado. A função recusa uso quando
+`NODE_ENV=production`.
+
+Esse ponto de resolução poderá ser substituído pela identidade autenticada no
+futuro. Não representa autenticação ou autorização e ainda não é conectado aos
+CRUDs. As APIs não passam a receber `psicologoId` do cliente nesta etapa.
+
+## Seed de desenvolvimento
+
+[seed.mjs](seed.mjs) carrega o ambiente para sua execução direta no Node e usa a
+instância Prisma central. O comando é registrado em `prisma.config.ts` e pode ser
+executado por:
+
+```powershell
+npm.cmd run prisma:seed
+```
+
+Esse script executa `prisma db seed`. O seed recusa `NODE_ENV=production` e exige
+o database `psicotask_dev_v2` antes de gravar qualquer registro.
+
+O único registro inserido é o psicólogo fictício definido na configuração
+central, com nome, email e registro profissional fictícios. O `upsert` usa o
+email UNIQUE e `update: {}`: execuções repetidas reutilizam o registro, sem
+duplicar psicólogos nem sobrescrever seus dados ou o hash existente. Não são
+criados Contextos, Tarefas ou Compromissos.
+
+O hash é produzido pelo `scrypt` nativo de `node:crypto`, sem biblioteca de
+autenticação ou dependência adicional de hash. São usados `N=131072`, `r=8`,
+`p=1`, salt aleatório de 16 bytes e chave derivada de 64 bytes. A entrada é uma
+senha aleatória de 32 bytes, descartada após a derivação e nunca registrada em
+texto puro. O valor persistido identifica o algoritmo e contém os parâmetros,
+o salt e o hash; não é uma senha disponível para login.
+
+Para validar a integração, consultar `prisma.psicologo.count()` antes do seed,
+executar o seed duas vezes e conferir um único psicólogo e zero registros nas
+outras três tabelas. A leitura inicial não deve inserir dados.
 
 ## Tabelas e campos físicos
 
@@ -81,8 +142,8 @@ UNIQUE adicional: `(id_contexto, psicologo_fk)`.
 | contexto_fk | integer | Obrigatório; parte da FK composta para contexto |
 | titulo | varchar(255) | Obrigatório |
 | descricao | text | Opcional (NULL) |
-| status | varchar(20) | Obrigatório; DEFAULT 'PENDENTE'; CHECK futuro |
-| prioridade | varchar(10) | Obrigatório; DEFAULT 'MEDIA'; CHECK futuro |
+| status | varchar(20) | Obrigatório; DEFAULT 'PENDENTE'; CHECK |
+| prioridade | varchar(10) | Obrigatório; DEFAULT 'MEDIA'; CHECK |
 | prazo | date | Opcional (NULL) |
 | data_criacao | date | Obrigatório; DEFAULT CURRENT_DATE |
 
@@ -102,7 +163,7 @@ o fuso operacional deve ser configurado explicitamente.
 | data | date | Obrigatório |
 | hora_inicio | time without time zone | Obrigatório |
 | hora_fim | time without time zone | Obrigatório |
-| status | varchar(20) | Obrigatório; DEFAULT 'AGENDADO'; CHECK futuro |
+| status | varchar(20) | Obrigatório; DEFAULT 'AGENDADO'; CHECK |
 
 `horaInicio` e `horaFim` usam `@db.Time`, com a precisão padrão do tipo nativo
 (até seis casas de segundos fracionários). A API atual continua usando HH:mm.
@@ -157,12 +218,12 @@ par não existe na tabela referenciada. Os dois campos NOT NULL impedem contorna
 a FK com NULL. A regra abrange INSERT e UPDATE, inclusive fora do Prisma, sem
 necessidade de trigger. A FK direta Tarefa–Psicologo também permanece declarada.
 
-## CHECKs incluídos na primeira migration — ainda não aplicados
+## CHECKs aplicados pela primeira migration
 
 O schema Prisma 7 não representa CHECKs. **Formatar/validar o schema não cria nem
 verifica estas restrições no PostgreSQL.** Os quatro CHECKs abaixo foram incluídos
-manualmente ao final da migration inicial. O arquivo está pronto para inspeção;
-as restrições ainda não existem no banco de desenvolvimento alvo.
+manualmente ao final da migration inicial e estão aplicados e validados no banco
+de desenvolvimento alvo.
 
 ```sql
 ALTER TABLE "tarefa"
@@ -180,23 +241,22 @@ ALTER TABLE "compromisso"
 
 String/VARCHAR e seus defaults não restringem os valores permitidos sozinhos.
 As colunas envolvidas são NOT NULL. Horário final igual ou anterior ao inicial
-será rejeitado; compromissos atravessando a meia-noite não são aceitos por essa
-regra. Os CHECKs só poderão ser testados no banco após autorização para criar
-as tabelas. A migration permanece pendente de aprovação e não há script de
-aplicação automática.
+é rejeitado; compromissos atravessando a meia-noite não são aceitos por essa
+regra. O seed não reaplica a migration nem altera essas restrições.
 
 ## Adaptações futuras do backend, não implementadas
 
 - Os contratos atuais usam IDs string; a integração precisará adotar number nos
   schemas, services e repositories, com validação/conversão dos parâmetros HTTP.
 - Contexto, Tarefa e Compromisso precisarão de `psicologoId`; Tarefa também de
-  `contextoId`. A origem do proprietário e a seleção do contexto precisam ser
-  definidas. A FK garante consistência e não substitui autorização.
+  `contextoId`. A origem provisória do proprietário está centralizada, mas sua
+  integração e a seleção do contexto ainda precisam ser implementadas. A FK
+  garante consistência e não substitui autorização.
 - `dataCriacao` deve ser preenchida pelo banco e excluída dos payloads de criação
   e atualização aceitos do cliente.
-- `senhaHash` agora é obrigatória e não tem default. Criar um psicólogo persistido
-  exigirá um hash real; não preencher com senha em texto puro ou valor fictício.
-  Autenticação não foi implementada, e o perfil em memória permanece intacto.
+- `senhaHash` é obrigatória e não tem default. O seed usa hash real de uma senha
+  aleatória descartada; a futura criação de contas precisará definir seu fluxo
+  de credenciais. Autenticação não foi implementada, e o perfil em memória permanece intacto.
   O hash nunca deve fazer parte da resposta pública de Perfil.
 - Prisma representa DATE/TIME por DateTime (Date no client). Os repositories
   futuros precisarão mapear AAAA-MM-DD e HH:mm sem deslocamento indevido de datas,

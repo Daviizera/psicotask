@@ -1,5 +1,5 @@
-// Identidade fictícia compartilhada pelo seed e pelo resolvedor temporário.
-// O ID é atribuído pelo PostgreSQL e nunca deve ser fixado no código.
+// Valores iniciais fictícios do seed; não identificam permanentemente o perfil.
+// O ID é atribuído pelo PostgreSQL e o perfil pode editar email e registro.
 export const developmentPsychologist = {
   nome: "Marina Exemplo (Desenvolvimento)",
   email: "psicologo.dev@psicotask.example",

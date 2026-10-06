@@ -1,4 +1,5 @@
 import { psychologistService } from "@/modules/psicologos/psychologist.container";
+import { PSYCHOLOGIST_CONFLICT } from "@/modules/psicologos/errors/psychologist-conflict.error";
 import { updatePsychologistSchema } from "@/modules/psicologos/schemas/psychologist.schema";
 
 export const runtime = "nodejs";
@@ -42,7 +43,18 @@ export async function PUT(request: Request) {
   try {
     const psychologist = await psychologistService.update(result.data);
     return Response.json(psychologist, { status: 200 });
-  } catch {
+  } catch (error) {
+    if (
+      error instanceof Error &&
+      "code" in error &&
+      error.code === PSYCHOLOGIST_CONFLICT
+    ) {
+      return Response.json(
+        { error: "E-mail ou registro profissional já cadastrado." },
+        { status: 409 },
+      );
+    }
+
     return Response.json({ error: "Erro interno do servidor" }, { status: 500 });
   }
 }

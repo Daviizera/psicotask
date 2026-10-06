@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { randomInt } from "node:crypto";
 
 import type {
   Psychologist,
@@ -8,7 +8,7 @@ import type { PsychologistRepository } from "./psychologist.repository";
 
 export class InMemoryPsychologistRepository implements PsychologistRepository {
   private psychologist: Psychologist = {
-    id: randomUUID(),
+    id: randomInt(1, 2147483647),
     nome: "Psicólogo de demonstração",
     email: "psicologo@example.com",
     registroProfissional: "DEMO-0000",

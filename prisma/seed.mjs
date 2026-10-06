@@ -62,16 +62,33 @@ async function main() {
       throw new Error("Seed de desenvolvimento: banco alvo inesperado.");
     }
 
-    const { developmentPsychologist } = await jiti.import(
-      "../src/config/development-psychologist.ts",
-    );
+    // Serializa a verificação/criação para evitar duplicação em execuções concorrentes.
+    await prisma.$transaction(
+      async (transaction) => {
+        const psychologists = await transaction.psicologo.findMany({
+          take: 2,
+          select: { id: true },
+        });
 
-    await prisma.psicologo.upsert({
-      where: { email: developmentPsychologist.email },
-      update: {},
-      create: { ...developmentPsychologist, senhaHash: createPasswordHash() },
-      select: { id: true },
-    });
+        if (psychologists.length > 1) {
+          throw new Error(
+            "Seed de desenvolvimento: estado ambíguo, existe mais de um psicólogo.",
+          );
+        }
+
+        if (psychologists.length === 1) return;
+
+        const { developmentPsychologist } = await jiti.import(
+          "../src/config/development-psychologist.ts",
+        );
+
+        await transaction.psicologo.create({
+          data: { ...developmentPsychologist, senhaHash: createPasswordHash() },
+          select: { id: true },
+        });
+      },
+      { isolationLevel: "Serializable" },
+    );
 
     console.log("Psicólogo de desenvolvimento preparado com sucesso.");
   } finally {

@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 export const psychologistSchema = z.object({
-  id: z.string(),
+  id: z.number().int().positive(),
   nome: z
     .string({ error: "O nome é obrigatório e deve ser um texto." })
     .trim()
@@ -16,6 +16,7 @@ export const psychologistSchema = z.object({
 export const updatePsychologistSchema = psychologistSchema
   .omit({ id: true })
   .partial()
+  .strict()
   .refine(
     (data) => Object.values(data).some((value) => value !== undefined),
     { error: "Informe ao menos um campo do perfil para atualizar." },

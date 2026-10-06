@@ -1,16 +1,7 @@
-import { InMemoryPsychologistRepository } from "./repositories/in-memory-psychologist.repository";
+import { PrismaPsychologistRepository } from "./repositories/prisma-psychologist.repository";
 import { PsychologistService } from "./services/psychologist.service";
 
-// Persistência temporária da pré-validação: mantém um único perfil compartilhado
-// no mesmo contexto global, inclusive ao reavaliar módulos em desenvolvimento.
-// Os dados são perdidos ao reiniciar e não são compartilhados entre processos.
-const globalForPsychologists = globalThis as typeof globalThis & {
-  psicoPsychologistRepository?: InMemoryPsychologistRepository;
-  psicoPsychologistService?: PsychologistService;
-};
+// O repository não guarda estado; o PrismaClient/pool compartilhado está em src/lib/prisma.ts.
+const psychologistRepository = new PrismaPsychologistRepository();
 
-const psychologistRepository = (globalForPsychologists.psicoPsychologistRepository ??=
-  new InMemoryPsychologistRepository());
-
-export const psychologistService = (globalForPsychologists.psicoPsychologistService ??=
-  new PsychologistService(psychologistRepository));
+export const psychologistService = new PsychologistService(psychologistRepository);

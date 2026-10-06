@@ -2,9 +2,9 @@
 
 O modelo usa IDs INTEGER. A migration inicial foi revisada e aplicada ao banco
 de desenvolvimento `psicotask_dev_v2`, com os quatro CHECKs. O Prisma Client foi
-gerado em `src/generated/prisma`. Os CRUDs continuam usando os
-InMemoryRepositories e os contratos atuais; a infraestrutura Prisma e o seed
-de desenvolvimento ficam preparados separadamente, sem novas migrations.
+gerado em `src/generated/prisma`. O Perfil/Psicólogo utiliza PostgreSQL por meio
+de `PrismaPsychologistRepository` e expõe ID numérico. Contextos, Tarefas,
+Compromissos e Resumo continuam usando os módulos em memória, sem novas migrations.
 
 ## Migration inicial aplicada
 
@@ -56,23 +56,34 @@ clients e pools durante hot reload no Next.js.
 
 O Next.js carrega as variáveis de ambiente da aplicação. O módulo não importa
 `dotenv/config`; o carregamento explícito fica nos scripts Node e na configuração
-da CLI. Essa infraestrutura não troca nenhum container ou repository atual.
+da CLI. Apenas o container de Perfil utiliza o repository Prisma nesta etapa.
 
 ## Psicólogo atual provisório
 
 [src/config/development-psychologist.ts](../src/config/development-psychologist.ts)
-centraliza a identidade fictícia usada no seed. Não há ID numérico fixo espalhado
-pelo backend.
+centraliza os valores fictícios iniciais do seed. Esses valores podem ser editados
+pela API e não são usados como identidade permanente. Não há ID numérico fixo.
 
 A função `getCurrentPsychologistId`, em
-[src/lib/current-psychologist.ts](../src/lib/current-psychologist.ts), busca o
-registro pelo email centralizado, seleciona somente `id` e informa um erro caso
-o seed ainda não tenha sido executado. A função recusa uso quando
-`NODE_ENV=production`.
+[src/lib/current-psychologist.ts](../src/lib/current-psychologist.ts), busca
+no máximo dois registros, selecionando somente `id`. Com exatamente um psicólogo,
+retorna seu ID; com zero, orienta executar o seed; com dois ou mais, informa estado
+de desenvolvimento ambíguo. A função recusa uso quando `NODE_ENV=production`.
 
 Esse ponto de resolução poderá ser substituído pela identidade autenticada no
-futuro. Não representa autenticação ou autorização e ainda não é conectado aos
-CRUDs. As APIs não passam a receber `psicologoId` do cliente nesta etapa.
+futuro. Não representa autenticação ou autorização e é usado apenas pelo Perfil.
+As APIs não recebem `psicologoId` do cliente.
+
+`PrismaPsychologistRepository` implementa a interface existente, usando o singleton
+Prisma. Consulta e atualização selecionam somente `id`, `nome`, `email` e
+`registroProfissional`; `senhaHash` não é consultado nem retornado. O mapeamento
+`registroProfissional` para `registro_prof` já está definido por `@map` no schema.
+O Service permanece desacoplado do armazenamento.
+
+O PUT continua parcial e rejeita corpo vazio, inválido e campos não permitidos,
+incluindo `id` e `senhaHash`. Conflitos UNIQUE (`P2002`) são traduzidos pelo
+repository para um erro do módulo; a rota retorna 409 com mensagem pública.
+Outros erros retornam 500 sem detalhes internos. POST e DELETE seguem sem handler.
 
 ## Seed de desenvolvimento
 
@@ -88,10 +99,13 @@ Esse script executa `prisma db seed`. O seed recusa `NODE_ENV=production` e exig
 o database `psicotask_dev_v2` antes de gravar qualquer registro.
 
 O único registro inserido é o psicólogo fictício definido na configuração
-central, com nome, email e registro profissional fictícios. O `upsert` usa o
-email UNIQUE e `update: {}`: execuções repetidas reutilizam o registro, sem
-duplicar psicólogos nem sobrescrever seus dados ou o hash existente. Não são
-criados Contextos, Tarefas ou Compromissos.
+central, com nome, email e registro profissional fictícios. O seed consulta no
+máximo dois psicólogos: cria somente quando não há nenhum, preserva integralmente
+o registro quando há exatamente um e aborta se houver dois ou mais. Assim, editar
+email ou registro profissional pela API não causa duplicação nem restaura os
+valores iniciais. A verificação/criação usa uma transação Serializable; uma
+concorrência incompatível aborta em vez de confirmar um segundo registro.
+Não são criados Contextos, Tarefas ou Compromissos.
 
 O hash é produzido pelo `scrypt` nativo de `node:crypto`, sem biblioteca de
 autenticação ou dependência adicional de hash. São usados `N=131072`, `r=8`,
@@ -100,9 +114,16 @@ senha aleatória de 32 bytes, descartada após a derivação e nunca registrada 
 texto puro. O valor persistido identifica o algoritmo e contém os parâmetros,
 o salt e o hash; não é uma senha disponível para login.
 
-Para validar a integração, consultar `prisma.psicologo.count()` antes do seed,
-executar o seed duas vezes e conferir um único psicólogo e zero registros nas
-outras três tabelas. A leitura inicial não deve inserir dados.
+Para validar a integração, registrar o perfil atual, testar GET/PUT por HTTP e
+conferir as alterações diretamente no PostgreSQL. Executar o seed também após
+editar email/registro, restaurar o perfil original ao terminar e conferir um
+único psicólogo e zero registros nas outras três tabelas.
+
+Os testes isolados de Perfil usam Prisma simulado, sem acessar o banco:
+
+```powershell
+node --test tests/psychologist.test.mjs
+```
 
 ## Tabelas e campos físicos
 
@@ -246,8 +267,8 @@ regra. O seed não reaplica a migration nem altera essas restrições.
 
 ## Adaptações futuras do backend, não implementadas
 
-- Os contratos atuais usam IDs string; a integração precisará adotar number nos
-  schemas, services e repositories, com validação/conversão dos parâmetros HTTP.
+- Perfil/Psicólogo já usa ID number. Os outros módulos continuam com IDs string;
+  sua integração precisará adotar number, com validação/conversão dos parâmetros HTTP.
 - Contexto, Tarefa e Compromisso precisarão de `psicologoId`; Tarefa também de
   `contextoId`. A origem provisória do proprietário está centralizada, mas sua
   integração e a seleção do contexto ainda precisam ser implementadas. A FK
@@ -256,7 +277,8 @@ regra. O seed não reaplica a migration nem altera essas restrições.
   e atualização aceitos do cliente.
 - `senhaHash` é obrigatória e não tem default. O seed usa hash real de uma senha
   aleatória descartada; a futura criação de contas precisará definir seu fluxo
-  de credenciais. Autenticação não foi implementada, e o perfil em memória permanece intacto.
+  de credenciais. Autenticação não foi implementada. A implementação de Perfil em
+  memória permanece disponível, mas seu container utiliza o repository Prisma.
   O hash nunca deve fazer parte da resposta pública de Perfil.
 - Prisma representa DATE/TIME por DateTime (Date no client). Os repositories
   futuros precisarão mapear AAAA-MM-DD e HH:mm sem deslocamento indevido de datas,

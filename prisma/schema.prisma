@@ -1,0 +1,73 @@
+generator client {
+  provider     = "prisma-client"
+  output       = "../src/generated/prisma"
+  moduleFormat = "esm"
+}
+
+datasource db {
+  provider     = "postgresql"
+  relationMode = "foreignKeys"
+}
+
+model Psicologo {
+  id                   Int           @id @default(autoincrement()) @map("id_psicologo")
+  nome                 String        @db.VarChar(200)
+  email                String        @unique @db.VarChar(254)
+  senhaHash            String        @map("senha_hash") @db.VarChar(255)
+  registroProfissional String        @unique @map("registro_prof") @db.VarChar(50)
+  contextos            Contexto[]
+  tarefas              Tarefa[]
+  compromissos         Compromisso[]
+
+  @@map("psicologo")
+}
+
+model Contexto {
+  id          Int       @id @default(autoincrement()) @map("id_contexto")
+  psicologoId Int       @map("psicologo_fk")
+  nome        String    @db.VarChar(200)
+  descricao   String?   @db.Text
+  psicologo   Psicologo @relation(fields: [psicologoId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  tarefas     Tarefa[]
+
+  // Alvo da FK composta que impede tarefas de usar contexto de outro psicólogo.
+  @@unique([id, psicologoId])
+  @@index([psicologoId])
+  @@map("contexto")
+}
+
+// Os CHECKs de status e prioridade estão documentados em prisma/README.md.
+model Tarefa {
+  id          Int       @id @default(autoincrement()) @map("id_tarefa")
+  psicologoId Int       @map("psicologo_fk")
+  contextoId  Int       @map("contexto_fk")
+  titulo      String    @db.VarChar(255)
+  descricao   String?   @db.Text
+  status      String    @default("PENDENTE") @db.VarChar(20)
+  prazo       DateTime? @db.Date
+  prioridade  String    @default("MEDIA") @db.VarChar(10)
+  dataCriacao DateTime  @default(dbgenerated("CURRENT_DATE")) @map("data_criacao") @db.Date
+  psicologo   Psicologo @relation(fields: [psicologoId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  contexto    Contexto  @relation(fields: [contextoId, psicologoId], references: [id, psicologoId], onDelete: Restrict, onUpdate: Restrict)
+
+  @@index([psicologoId])
+  @@index([contextoId, psicologoId])
+  @@map("tarefa")
+}
+
+// Os CHECKs de status e hora_fim > hora_inicio devem integrar a futura migration.
+// Prisma 7 não os expressa no schema; ver o SQL obrigatório em prisma/README.md.
+model Compromisso {
+  id          Int       @id @default(autoincrement()) @map("id_compromisso")
+  psicologoId Int       @map("psicologo_fk")
+  titulo      String    @db.VarChar(255)
+  descricao   String?   @db.Text
+  data        DateTime  @db.Date
+  horaInicio  DateTime  @map("hora_inicio") @db.Time
+  horaFim     DateTime  @map("hora_fim") @db.Time
+  status      String    @default("AGENDADO") @db.VarChar(20)
+  psicologo   Psicologo @relation(fields: [psicologoId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@index([psicologoId])
+  @@map("compromisso")
+}

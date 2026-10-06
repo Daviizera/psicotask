@@ -1,0 +1,212 @@
+# Modelo físico — preparação para PostgreSQL
+
+O modelo usa IDs INTEGER. A migration inicial foi gerada com `--create-only` e
+editada para incluir os quatro CHECKs; ela ainda não foi aplicada. Os módulos em
+`src/` continuam usando os InMemoryRepositories e os contratos atuais.
+
+## Migration inicial pendente de revisão
+
+- Arquivo: [migration.sql](migrations/20261006133611_init_psicotask/migration.sql).
+- Destino confirmado por leitura: `psicotask_dev_v2`, exclusivamente de desenvolvimento.
+- Antes da geração, o schema `public` estava vazio, sem `_prisma_migrations`.
+- `prisma validate` passou e `prisma migrate dev --name init_psicotask --create-only`
+  gerou o SQL sem sinalizar drift ou reset.
+- Após o comando, uma consulta somente leitura confirmou zero tabelas da aplicação.
+  O Prisma inicializou apenas `_prisma_migrations`, vazia, com zero migrations aplicadas.
+- O SQL usa SERIAL para implementar os quatro IDs INTEGER autoincrementais e
+  índices únicos para implementar as três declarações UNIQUE do schema.
+- Os CHECKs foram acrescentados somente ao arquivo local. Nenhum seed, aplicação
+  da migration ou alteração dos módulos do backend foi executado.
+
+## Configuração preservada
+
+- Prisma CLI, Client e adapter PostgreSQL: 7.10.0, sem preview features.
+- Ambiente inspecionado: Node.js 24.19.0, Next.js 16.3.7 e TypeScript 5.9.3.
+- `prisma.config.ts` carrega `.env` via dotenv e lê `DATABASE_URL`. Sem essa
+  variável, a configuração permite validar o schema sem conexão ao banco.
+- `.env.example` contém somente placeholders. `.env` e suas variantes continuam
+  ignorados pelo Git; apenas `.env.example` é liberado.
+- O generator `prisma-client` está configurado para produzir ESM em
+  `src/generated/prisma`, ignorado pelo Git. O client não foi gerado nem integrado.
+- O banco de desenvolvimento foi fornecido pelo responsável pelo projeto.
+  As verificações de conexão e estrutura utilizaram transações somente leitura.
+
+Comandos locais desta etapa, sem conexão ao banco:
+
+```powershell
+node node_modules/prisma/build/index.js format
+node node_modules/prisma/build/index.js validate
+```
+
+O script existente `npm.cmd run prisma:validate` também executa a validação.
+TypeScript/ESLint só precisam ser repetidos nesta etapa se suas configurações ou
+arquivos TypeScript forem alterados. A geração desta migration alterou somente
+arquivos de migration e documentação.
+
+## Tabelas e campos físicos
+
+Os nomes físicos são singulares, em minúsculas e snake_case. `@map` e `@@map`
+mantêm nomes idiomáticos no Prisma, como `id`, `psicologoId`, `contextoId`,
+`registroProfissional`, `dataCriacao`, `horaInicio` e `horaFim`.
+Todos os campos são NOT NULL, exceto os marcados como opcionais abaixo.
+As propriedades de relação Prisma não criam colunas adicionais.
+
+### psicologo
+
+| Campo físico | Tipo PostgreSQL | Restrições/default |
+| --- | --- | --- |
+| id_psicologo | integer | PK; autoincrement |
+| nome | varchar(200) | Obrigatório |
+| email | varchar(254) | Obrigatório; UNIQUE |
+| senha_hash | varchar(255) | Obrigatório; sem default; somente hash |
+| registro_prof | varchar(50) | Obrigatório; UNIQUE |
+
+### contexto
+
+| Campo físico | Tipo PostgreSQL | Restrições/default |
+| --- | --- | --- |
+| id_contexto | integer | PK; autoincrement |
+| psicologo_fk | integer | Obrigatório; FK psicologo(id_psicologo) |
+| nome | varchar(200) | Obrigatório |
+| descricao | text | Opcional (NULL) |
+
+UNIQUE adicional: `(id_contexto, psicologo_fk)`.
+
+### tarefa
+
+| Campo físico | Tipo PostgreSQL | Restrições/default |
+| --- | --- | --- |
+| id_tarefa | integer | PK; autoincrement |
+| psicologo_fk | integer | Obrigatório; FK psicologo(id_psicologo); parte da FK composta |
+| contexto_fk | integer | Obrigatório; parte da FK composta para contexto |
+| titulo | varchar(255) | Obrigatório |
+| descricao | text | Opcional (NULL) |
+| status | varchar(20) | Obrigatório; DEFAULT 'PENDENTE'; CHECK futuro |
+| prioridade | varchar(10) | Obrigatório; DEFAULT 'MEDIA'; CHECK futuro |
+| prazo | date | Opcional (NULL) |
+| data_criacao | date | Obrigatório; DEFAULT CURRENT_DATE |
+
+`dataCriacao` usa `DateTime @db.Date @default(dbgenerated("CURRENT_DATE"))`.
+O tipo físico é DATE, sem componente de horário. CURRENT_DATE é avaliado pelo
+PostgreSQL conforme a data da transação e o fuso da sessão do banco; na integração,
+o fuso operacional deve ser configurado explicitamente.
+
+### compromisso
+
+| Campo físico | Tipo PostgreSQL | Restrições/default |
+| --- | --- | --- |
+| id_compromisso | integer | PK; autoincrement |
+| psicologo_fk | integer | Obrigatório; FK psicologo(id_psicologo) |
+| titulo | varchar(255) | Obrigatório |
+| descricao | text | Opcional (NULL) |
+| data | date | Obrigatório |
+| hora_inicio | time without time zone | Obrigatório |
+| hora_fim | time without time zone | Obrigatório |
+| status | varchar(20) | Obrigatório; DEFAULT 'AGENDADO'; CHECK futuro |
+
+`horaInicio` e `horaFim` usam `@db.Time`, com a precisão padrão do tipo nativo
+(até seis casas de segundos fracionários). A API atual continua usando HH:mm.
+
+## Comprimentos VARCHAR
+
+| Uso | Comprimento | Motivo da escolha física |
+| --- | --- | --- |
+| Nomes de psicólogo/contexto | 200 | Espaço para nomes completos e rótulos descritivos |
+| Títulos de tarefa/compromisso | 255 | Espaço para títulos descritivos |
+| Email | 254 | Capacidade usual para um endereço completo |
+| Hash de senha | 255 | Espaço para formatos de hash codificados com seus parâmetros |
+| Registro profissional | 50 | Espaço para número, região, categoria e separadores |
+| Status | 20 | Comporta todos os valores autorizados |
+| Prioridade | 10 | Comporta BAIXA, MEDIA e ALTA |
+
+Esses comprimentos são limites de armazenamento. Nenhum `.max()` ou outra regra
+foi adicionado aos schemas Zod. Antes de integrar a persistência, será necessário
+tratar entradas maiores que a capacidade física, pois a API atual não possui esses
+limites. Descrições permanecem TEXT, sem limite adicional de tamanho declarado.
+Foram preservados os defaults existentes PENDENTE, MEDIA e AGENDADO.
+Não há enums PostgreSQL: status e prioridade são String/VARCHAR.
+
+## PKs, UNIQUEs e relações
+
+- PKs individuais autoincrementais: psicologo(id_psicologo), contexto(id_contexto),
+  tarefa(id_tarefa) e compromisso(id_compromisso), todas representadas por
+  `Int @id @default(autoincrement())`.
+- UNIQUEs: psicologo(email), psicologo(registro_prof) e
+  contexto(id_contexto, psicologo_fk).
+- Relações 1:N: Psicologo–Contexto, Psicologo–Tarefa, Psicologo–Compromisso e
+  Contexto–Tarefa. Não existe relação Tarefa–Compromisso ou Contexto–Compromisso.
+- Todas as FKs usam ON DELETE RESTRICT e ON UPDATE RESTRICT. Um contexto em uso
+  não pode ser excluído, nem ter o proprietário alterado por cascata.
+- Índices de suporte às FKs: contexto(psicologo_fk), tarefa(psicologo_fk),
+  tarefa(contexto_fk, psicologo_fk) e compromisso(psicologo_fk).
+
+A propriedade do contexto é garantida pela FK composta:
+
+```prisma
+// Em Contexto:
+@@unique([id, psicologoId])
+
+// Em Tarefa:
+contexto Contexto @relation(fields: [contextoId, psicologoId], references: [id, psicologoId], onDelete: Restrict, onUpdate: Restrict)
+```
+
+Pelos mapeamentos físicos, isso corresponde a:
+`tarefa(contexto_fk, psicologo_fk) -> contexto(id_contexto, psicologo_fk)`.
+Uma tarefa do psicólogo A não pode referenciar um contexto do psicólogo B, pois o
+par não existe na tabela referenciada. Os dois campos NOT NULL impedem contornar
+a FK com NULL. A regra abrange INSERT e UPDATE, inclusive fora do Prisma, sem
+necessidade de trigger. A FK direta Tarefa–Psicologo também permanece declarada.
+
+## CHECKs incluídos na primeira migration — ainda não aplicados
+
+O schema Prisma 7 não representa CHECKs. **Formatar/validar o schema não cria nem
+verifica estas restrições no PostgreSQL.** Os quatro CHECKs abaixo foram incluídos
+manualmente ao final da migration inicial. O arquivo está pronto para inspeção;
+as restrições ainda não existem no banco de desenvolvimento alvo.
+
+```sql
+ALTER TABLE "tarefa"
+  ADD CONSTRAINT "tarefa_status_check"
+    CHECK ("status" IN ('PENDENTE', 'EM_ANDAMENTO', 'CONCLUIDA')),
+  ADD CONSTRAINT "tarefa_prioridade_check"
+    CHECK ("prioridade" IN ('BAIXA', 'MEDIA', 'ALTA'));
+
+ALTER TABLE "compromisso"
+  ADD CONSTRAINT "compromisso_status_check"
+    CHECK ("status" IN ('AGENDADO', 'CONCLUIDO', 'CANCELADO')),
+  ADD CONSTRAINT "compromisso_hora_fim_maior_inicio_check"
+    CHECK ("hora_fim" > "hora_inicio");
+```
+
+String/VARCHAR e seus defaults não restringem os valores permitidos sozinhos.
+As colunas envolvidas são NOT NULL. Horário final igual ou anterior ao inicial
+será rejeitado; compromissos atravessando a meia-noite não são aceitos por essa
+regra. Os CHECKs só poderão ser testados no banco após autorização para criar
+as tabelas. A migration permanece pendente de aprovação e não há script de
+aplicação automática.
+
+## Adaptações futuras do backend, não implementadas
+
+- Os contratos atuais usam IDs string; a integração precisará adotar number nos
+  schemas, services e repositories, com validação/conversão dos parâmetros HTTP.
+- Contexto, Tarefa e Compromisso precisarão de `psicologoId`; Tarefa também de
+  `contextoId`. A origem do proprietário e a seleção do contexto precisam ser
+  definidas. A FK garante consistência e não substitui autorização.
+- `dataCriacao` deve ser preenchida pelo banco e excluída dos payloads de criação
+  e atualização aceitos do cliente.
+- `senhaHash` agora é obrigatória e não tem default. Criar um psicólogo persistido
+  exigirá um hash real; não preencher com senha em texto puro ou valor fictício.
+  Autenticação não foi implementada, e o perfil em memória permanece intacto.
+  O hash nunca deve fazer parte da resposta pública de Perfil.
+- Prisma representa DATE/TIME por DateTime (Date no client). Os repositories
+  futuros precisarão mapear AAAA-MM-DD e HH:mm sem deslocamento indevido de datas,
+  além de converter NULL para a representação de opcionais dos contratos atuais.
+- UNIQUEs, FKs, CHECKs e limites VARCHAR exigirão tratamento de erros na integração.
+  Regras de texto não vazio e email válido continuam nos schemas Zod existentes.
+
+## Referências
+
+- [Configuração do Prisma 7](https://www.prisma.io/docs/orm/v7/reference/prisma-config-reference)
+- [Suporte a CHECK no Prisma 7](https://www.prisma.io/docs/orm/v7/reference/database-features)
+- [Constraints PostgreSQL](https://www.postgresql.org/docs/current/ddl-constraints.html)
+- [Tipos de data/hora PostgreSQL](https://www.postgresql.org/docs/current/datatype-datetime.html)

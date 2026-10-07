@@ -1,5 +1,3 @@
-import { randomUUID } from "node:crypto";
-
 import type {
   Appointment,
   CreateAppointmentData,
@@ -8,9 +6,10 @@ import type {
 import type { AppointmentRepository } from "./appointment.repository";
 
 export class InMemoryAppointmentRepository implements AppointmentRepository {
+  private nextId = 1;
   private appointments: Appointment[] = [
     {
-      id: randomUUID(),
+      id: this.nextId++,
       titulo: "Supervisão profissional",
       data: "2026-10-10",
       horaInicio: "09:00",
@@ -18,7 +17,7 @@ export class InMemoryAppointmentRepository implements AppointmentRepository {
       status: "AGENDADO",
     },
     {
-      id: randomUUID(),
+      id: this.nextId++,
       titulo: "Reunião de planejamento",
       data: "2026-10-14",
       horaInicio: "14:00",
@@ -26,7 +25,7 @@ export class InMemoryAppointmentRepository implements AppointmentRepository {
       status: "AGENDADO",
     },
     {
-      id: randomUUID(),
+      id: this.nextId++,
       titulo: "Encontro de estudo",
       data: "2026-10-02",
       horaInicio: "16:00",
@@ -39,18 +38,18 @@ export class InMemoryAppointmentRepository implements AppointmentRepository {
     return this.appointments.map((appointment) => ({ ...appointment }));
   }
 
-  async findById(id: string): Promise<Appointment | null> {
+  async findById(id: number): Promise<Appointment | null> {
     const appointment = this.appointments.find((appointment) => appointment.id === id);
     return appointment ? { ...appointment } : null;
   }
 
   async create(data: CreateAppointmentData): Promise<Appointment> {
-    const appointment: Appointment = { ...data, id: randomUUID() };
+    const appointment: Appointment = { ...data, id: this.nextId++ };
     this.appointments.push(appointment);
     return { ...appointment };
   }
 
-  async update(id: string, data: UpdateAppointmentInput): Promise<Appointment | null> {
+  async update(id: number, data: UpdateAppointmentInput): Promise<Appointment | null> {
     const appointment = this.appointments.find((appointment) => appointment.id === id);
 
     if (!appointment) {
@@ -68,7 +67,7 @@ export class InMemoryAppointmentRepository implements AppointmentRepository {
     return { ...appointment };
   }
 
-  async delete(id: string): Promise<boolean> {
+  async delete(id: number): Promise<boolean> {
     const index = this.appointments.findIndex((appointment) => appointment.id === id);
 
     if (index === -1) {

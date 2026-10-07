@@ -1,5 +1,8 @@
 import { appointmentService } from "@/modules/compromissos/appointment.container";
-import { updateAppointmentSchema } from "@/modules/compromissos/schemas/appointment.schema";
+import {
+  appointmentIdParamSchema,
+  updateAppointmentSchema,
+} from "@/modules/compromissos/schemas/appointment.schema";
 import { INVALID_APPOINTMENT_TIME_RANGE } from "@/modules/compromissos/services/appointment.service";
 
 export const runtime = "nodejs";
@@ -8,10 +11,24 @@ type AppointmentRouteContext = {
   params: Promise<{ id: string }>;
 };
 
+function invalidAppointmentIdResponse() {
+  return Response.json(
+    {
+      error: "Dados inválidos",
+      details: [
+        { path: ["id"], message: "O ID do compromisso deve ser um inteiro entre 1 e 2147483647." },
+      ],
+    },
+    { status: 400 },
+  );
+}
+
 export async function GET(_request: Request, { params }: AppointmentRouteContext) {
   try {
     const { id } = await params;
-    const appointment = await appointmentService.findById(id);
+    const parsedId = appointmentIdParamSchema.safeParse(id);
+    if (!parsedId.success) return invalidAppointmentIdResponse();
+    const appointment = await appointmentService.findById(parsedId.data);
 
     if (!appointment) {
       return Response.json({ error: "Recurso não encontrado" }, { status: 404 });
@@ -52,7 +69,9 @@ export async function PUT(request: Request, { params }: AppointmentRouteContext)
 
   try {
     const { id } = await params;
-    const appointment = await appointmentService.update(id, result.data);
+    const parsedId = appointmentIdParamSchema.safeParse(id);
+    if (!parsedId.success) return invalidAppointmentIdResponse();
+    const appointment = await appointmentService.update(parsedId.data, result.data);
 
     if (!appointment) {
       return Response.json({ error: "Recurso não encontrado" }, { status: 404 });
@@ -83,7 +102,9 @@ export async function PUT(request: Request, { params }: AppointmentRouteContext)
 export async function DELETE(_request: Request, { params }: AppointmentRouteContext) {
   try {
     const { id } = await params;
-    const deleted = await appointmentService.delete(id);
+    const parsedId = appointmentIdParamSchema.safeParse(id);
+    if (!parsedId.success) return invalidAppointmentIdResponse();
+    const deleted = await appointmentService.delete(parsedId.data);
 
     if (!deleted) {
       return Response.json({ error: "Recurso não encontrado" }, { status: 404 });

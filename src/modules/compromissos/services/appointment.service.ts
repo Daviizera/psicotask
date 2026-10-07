@@ -23,7 +23,7 @@ export class AppointmentService {
     return this.appointmentRepository.findAll();
   }
 
-  findById(id: string): Promise<Appointment | null> {
+  findById(id: number): Promise<Appointment | null> {
     return this.appointmentRepository.findById(id);
   }
 
@@ -32,7 +32,7 @@ export class AppointmentService {
     return this.appointmentRepository.create(data);
   }
 
-  async update(id: string, data: UpdateAppointmentInput): Promise<Appointment | null> {
+  async update(id: number, data: UpdateAppointmentInput): Promise<Appointment | null> {
     const appointment = await this.appointmentRepository.findById(id);
 
     if (!appointment) {
@@ -48,7 +48,7 @@ export class AppointmentService {
     return this.appointmentRepository.update(id, { ...data, horaInicio, horaFim });
   }
 
-  delete(id: string): Promise<boolean> {
+  delete(id: number): Promise<boolean> {
     return this.appointmentRepository.delete(id);
   }
 

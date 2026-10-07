@@ -6,8 +6,8 @@ import type {
 
 export interface AppointmentRepository {
   findAll(): Promise<Appointment[]>;
-  findById(id: string): Promise<Appointment | null>;
+  findById(id: number): Promise<Appointment | null>;
   create(data: CreateAppointmentData): Promise<Appointment>;
-  update(id: string, data: UpdateAppointmentInput): Promise<Appointment | null>;
-  delete(id: string): Promise<boolean>;
+  update(id: number, data: UpdateAppointmentInput): Promise<Appointment | null>;
+  delete(id: number): Promise<boolean>;
 }

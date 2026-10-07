@@ -12,7 +12,7 @@ export class ContextService {
     return this.contextRepository.findAll();
   }
 
-  findById(id: string): Promise<Context | null> {
+  findById(id: number): Promise<Context | null> {
     return this.contextRepository.findById(id);
   }
 
@@ -20,11 +20,11 @@ export class ContextService {
     return this.contextRepository.create(data);
   }
 
-  update(id: string, data: UpdateContextInput): Promise<Context | null> {
+  update(id: number, data: UpdateContextInput): Promise<Context | null> {
     return this.contextRepository.update(id, data);
   }
 
-  delete(id: string): Promise<boolean> {
+  delete(id: number): Promise<boolean> {
     return this.contextRepository.delete(id);
   }
 }

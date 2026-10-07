@@ -3,8 +3,9 @@
 O modelo usa IDs INTEGER. A migration inicial foi revisada e aplicada ao banco
 de desenvolvimento `psicotask_dev_v2`, com os quatro CHECKs. O Prisma Client foi
 gerado em `src/generated/prisma`. O Perfil/Psicólogo utiliza PostgreSQL por meio
-de `PrismaPsychologistRepository` e expõe ID numérico. Contextos, Tarefas,
-Compromissos e Resumo continuam usando os módulos em memória, sem novas migrations.
+de `PrismaPsychologistRepository` e expõe ID numérico. Contextos também utiliza
+PostgreSQL e IDs numéricos, por meio de `PrismaContextRepository`. Tarefas,
+Compromissos e Resumo continuam usando suas implementações em memória.
 
 ## Migration inicial aplicada
 
@@ -56,7 +57,7 @@ clients e pools durante hot reload no Next.js.
 
 O Next.js carrega as variáveis de ambiente da aplicação. O módulo não importa
 `dotenv/config`; o carregamento explícito fica nos scripts Node e na configuração
-da CLI. Apenas o container de Perfil utiliza o repository Prisma nesta etapa.
+da CLI. Os containers de Perfil e Contextos utilizam repositories Prisma.
 
 ## Psicólogo atual provisório
 
@@ -71,7 +72,7 @@ retorna seu ID; com zero, orienta executar o seed; com dois ou mais, informa est
 de desenvolvimento ambíguo. A função recusa uso quando `NODE_ENV=production`.
 
 Esse ponto de resolução poderá ser substituído pela identidade autenticada no
-futuro. Não representa autenticação ou autorização e é usado apenas pelo Perfil.
+futuro. Não representa autenticação e é usado por Perfil e Contextos.
 As APIs não recebem `psicologoId` do cliente.
 
 `PrismaPsychologistRepository` implementa a interface existente, usando o singleton
@@ -84,6 +85,35 @@ O PUT continua parcial e rejeita corpo vazio, inválido e campos não permitidos
 incluindo `id` e `senhaHash`. Conflitos UNIQUE (`P2002`) são traduzidos pelo
 repository para um erro do módulo; a rota retorna 409 com mensagem pública.
 Outros erros retornam 500 sem detalhes internos. POST e DELETE seguem sem handler.
+
+## Contextos persistidos
+
+`PrismaContextRepository` implementa a interface de Contextos e usa o singleton
+Prisma. Todas as operações obtêm o psicólogo atual pelo resolvedor central.
+Listagem e busca incluem `psicologoId` no filtro; atualização e exclusão incluem
+o proprietário na própria operação de escrita, junto ao ID. Ausência ou outro
+proprietário resultam em 404. O Service permanece desacoplado do armazenamento.
+
+POST/PUT aceitam apenas `nome` e `descricao`. Campos como `id`, `psicologoId` e
+`psicologo_fk` são rejeitados; o repository também seleciona explicitamente os
+campos graváveis. `nome` tem limite de 200 caracteres, compatível com VARCHAR(200).
+O proprietário é atribuído exclusivamente pelo backend. A resposta contém apenas
+`id`, `nome` e `descricao` quando preenchida; NULL no banco mantém o campo opcional
+ausente na API, enquanto texto vazio é preservado.
+
+O ID de Contexto é number. Nas rotas dinâmicas, o texto deve conter somente dígitos
+e representar um valor entre 1 e 2147483647 (PostgreSQL INTEGER). Zero, negativos,
+decimais, texto e valores fora desse intervalo retornam 400. IDs válidos sem
+registro acessível retornam 404. PUT permanece parcial e corpo vazio retorna 400.
+
+O container utiliza `PrismaContextRepository`; a versão em memória permanece no
+código com IDs numéricos, sem uso pelas rotas reais. DELETE preserva as FKs RESTRICT
+e nenhuma constraint foi alterada. Não existe seed de Contextos.
+
+Na validação HTTP, criar apenas registros temporários, conferir a propriedade e
+os valores diretamente no PostgreSQL e removê-los ao final. O isolamento entre
+proprietários também é coberto por testes com Prisma simulado, sem adicionar um
+segundo psicólogo real.
 
 ## Seed de desenvolvimento
 
@@ -119,10 +149,11 @@ conferir as alterações diretamente no PostgreSQL. Executar o seed também apó
 editar email/registro, restaurar o perfil original ao terminar e conferir um
 único psicólogo e zero registros nas outras três tabelas.
 
-Os testes isolados de Perfil usam Prisma simulado, sem acessar o banco:
+Os testes isolados de Perfil e Contextos usam Prisma simulado, sem acessar o banco:
 
 ```powershell
 node --test tests/psychologist.test.mjs
+node --test tests/context.test.mjs
 ```
 
 ## Tabelas e campos físicos
@@ -201,10 +232,9 @@ o fuso operacional deve ser configurado explicitamente.
 | Status | 20 | Comporta todos os valores autorizados |
 | Prioridade | 10 | Comporta BAIXA, MEDIA e ALTA |
 
-Esses comprimentos são limites de armazenamento. Nenhum `.max()` ou outra regra
-foi adicionado aos schemas Zod. Antes de integrar a persistência, será necessário
-tratar entradas maiores que a capacidade física, pois a API atual não possui esses
-limites. Descrições permanecem TEXT, sem limite adicional de tamanho declarado.
+Esses comprimentos são limites de armazenamento. O schema Zod de Contexto já valida
+o limite de 200 caracteres do nome. Os demais limites ainda precisarão de tratamento
+nos respectivos módulos. Descrições permanecem TEXT, sem limite adicional declarado.
 Foram preservados os defaults existentes PENDENTE, MEDIA e AGENDADO.
 Não há enums PostgreSQL: status e prioridade são String/VARCHAR.
 
@@ -267,12 +297,11 @@ regra. O seed não reaplica a migration nem altera essas restrições.
 
 ## Adaptações futuras do backend, não implementadas
 
-- Perfil/Psicólogo já usa ID number. Os outros módulos continuam com IDs string;
-  sua integração precisará adotar number, com validação/conversão dos parâmetros HTTP.
-- Contexto, Tarefa e Compromisso precisarão de `psicologoId`; Tarefa também de
-  `contextoId`. A origem provisória do proprietário está centralizada, mas sua
-  integração e a seleção do contexto ainda precisam ser implementadas. A FK
-  garante consistência e não substitui autorização.
+- Perfil/Psicólogo e Contextos já usam ID number. Tarefas e Compromissos continuam
+  com IDs string; sua integração precisará validar/converter os parâmetros HTTP.
+- Contexto já recebe `psicologoId` exclusivamente do backend. Tarefa e Compromisso
+  ainda precisarão dessa integração; Tarefa também precisará de `contextoId`.
+  A FK garante consistência e não substitui autorização.
 - `dataCriacao` deve ser preenchida pelo banco e excluída dos payloads de criação
   e atualização aceitos do cliente.
 - `senhaHash` é obrigatória e não tem default. O seed usa hash real de uma senha

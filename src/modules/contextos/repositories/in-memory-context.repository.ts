@@ -1,5 +1,3 @@
-import { randomUUID } from "node:crypto";
-
 import type {
   Context,
   CreateContextData,
@@ -8,28 +6,30 @@ import type {
 import type { ContextRepository } from "./context.repository";
 
 export class InMemoryContextRepository implements ContextRepository {
+  private nextId = 1;
+
   private contexts: Context[] = [
-    { id: randomUUID(), nome: "Administrativo" },
-    { id: randomUUID(), nome: "Estudo" },
-    { id: randomUUID(), nome: "Supervisão" },
+    { id: this.nextId++, nome: "Administrativo" },
+    { id: this.nextId++, nome: "Estudo" },
+    { id: this.nextId++, nome: "Supervisão" },
   ];
 
   async findAll(): Promise<Context[]> {
     return this.contexts.map((context) => ({ ...context }));
   }
 
-  async findById(id: string): Promise<Context | null> {
+  async findById(id: number): Promise<Context | null> {
     const context = this.contexts.find((context) => context.id === id);
     return context ? { ...context } : null;
   }
 
   async create(data: CreateContextData): Promise<Context> {
-    const context: Context = { ...data, id: randomUUID() };
+    const context: Context = { ...data, id: this.nextId++ };
     this.contexts.push(context);
     return { ...context };
   }
 
-  async update(id: string, data: UpdateContextInput): Promise<Context | null> {
+  async update(id: number, data: UpdateContextInput): Promise<Context | null> {
     const context = this.contexts.find((context) => context.id === id);
 
     if (!context) {
@@ -43,7 +43,7 @@ export class InMemoryContextRepository implements ContextRepository {
     return { ...context };
   }
 
-  async delete(id: string): Promise<boolean> {
+  async delete(id: number): Promise<boolean> {
     const index = this.contexts.findIndex((context) => context.id === id);
 
     if (index === -1) {

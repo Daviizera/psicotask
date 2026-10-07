@@ -6,8 +6,8 @@ import type {
 
 export interface ContextRepository {
   findAll(): Promise<Context[]>;
-  findById(id: string): Promise<Context | null>;
+  findById(id: number): Promise<Context | null>;
   create(data: CreateContextData): Promise<Context>;
-  update(id: string, data: UpdateContextInput): Promise<Context | null>;
-  delete(id: string): Promise<boolean>;
+  update(id: number, data: UpdateContextInput): Promise<Context | null>;
+  delete(id: number): Promise<boolean>;
 }

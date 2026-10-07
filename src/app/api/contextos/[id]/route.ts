@@ -1,5 +1,8 @@
 import { contextService } from "@/modules/contextos/context.container";
-import { updateContextSchema } from "@/modules/contextos/schemas/context.schema";
+import {
+  contextIdParamSchema,
+  updateContextSchema,
+} from "@/modules/contextos/schemas/context.schema";
 
 export const runtime = "nodejs";
 
@@ -7,10 +10,28 @@ type ContextRouteContext = {
   params: Promise<{ id: string }>;
 };
 
+function invalidContextIdResponse() {
+  return Response.json(
+    {
+      error: "Dados inválidos",
+      details: [
+        {
+          path: ["id"],
+          message: "O ID do contexto deve ser um inteiro entre 1 e 2147483647.",
+        },
+      ],
+    },
+    { status: 400 },
+  );
+}
+
 export async function GET(_request: Request, { params }: ContextRouteContext) {
   try {
     const { id } = await params;
-    const context = await contextService.findById(id);
+    const parsedId = contextIdParamSchema.safeParse(id);
+    if (!parsedId.success) return invalidContextIdResponse();
+
+    const context = await contextService.findById(parsedId.data);
 
     if (!context) {
       return Response.json({ error: "Recurso não encontrado" }, { status: 404 });
@@ -51,7 +72,10 @@ export async function PUT(request: Request, { params }: ContextRouteContext) {
 
   try {
     const { id } = await params;
-    const context = await contextService.update(id, result.data);
+    const parsedId = contextIdParamSchema.safeParse(id);
+    if (!parsedId.success) return invalidContextIdResponse();
+
+    const context = await contextService.update(parsedId.data, result.data);
 
     if (!context) {
       return Response.json({ error: "Recurso não encontrado" }, { status: 404 });
@@ -66,7 +90,10 @@ export async function PUT(request: Request, { params }: ContextRouteContext) {
 export async function DELETE(_request: Request, { params }: ContextRouteContext) {
   try {
     const { id } = await params;
-    const deleted = await contextService.delete(id);
+    const parsedId = contextIdParamSchema.safeParse(id);
+    if (!parsedId.success) return invalidContextIdResponse();
+
+    const deleted = await contextService.delete(parsedId.data);
 
     if (!deleted) {
       return Response.json({ error: "Recurso não encontrado" }, { status: 404 });

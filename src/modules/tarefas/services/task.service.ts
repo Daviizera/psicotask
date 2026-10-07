@@ -13,7 +13,7 @@ export class TaskService {
     return this.taskRepository.findAll(filters);
   }
 
-  findById(id: string): Promise<Task | null> {
+  findById(id: number): Promise<Task | null> {
     return this.taskRepository.findById(id);
   }
 
@@ -21,11 +21,11 @@ export class TaskService {
     return this.taskRepository.create(data);
   }
 
-  update(id: string, data: UpdateTaskInput): Promise<Task | null> {
+  update(id: number, data: UpdateTaskInput): Promise<Task | null> {
     return this.taskRepository.update(id, data);
   }
 
-  delete(id: string): Promise<boolean> {
+  delete(id: number): Promise<boolean> {
     return this.taskRepository.delete(id);
   }
 }

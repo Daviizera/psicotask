@@ -1,4 +1,5 @@
-import { updateTaskSchema } from "@/modules/tarefas/schemas/task.schema";
+import { TaskContextNotFoundError } from "@/modules/tarefas/errors/task-context-not-found.error";
+import { taskIdParamSchema, updateTaskSchema } from "@/modules/tarefas/schemas/task.schema";
 import { taskService } from "@/modules/tarefas/task.container";
 
 export const runtime = "nodejs";
@@ -7,10 +8,22 @@ type TaskRouteContext = {
   params: Promise<{ id: string }>;
 };
 
+function invalidTaskIdResponse() {
+  return Response.json(
+    {
+      error: "Dados inválidos",
+      details: [{ path: ["id"], message: "O ID da tarefa deve ser um inteiro entre 1 e 2147483647." }],
+    },
+    { status: 400 },
+  );
+}
+
 export async function GET(_request: Request, { params }: TaskRouteContext) {
   try {
     const { id } = await params;
-    const task = await taskService.findById(id);
+    const parsedId = taskIdParamSchema.safeParse(id);
+    if (!parsedId.success) return invalidTaskIdResponse();
+    const task = await taskService.findById(parsedId.data);
 
     if (!task) {
       return Response.json({ error: "Tarefa não encontrada" }, { status: 404 });
@@ -49,28 +62,21 @@ export async function PUT(request: Request, { params }: TaskRouteContext) {
     );
   }
 
-  if (Object.keys(result.data).length === 0) {
-    return Response.json(
-      {
-        error: "Dados inválidos",
-        details: [
-          { path: [], message: "Informe ao menos um campo da tarefa para atualizar." },
-        ],
-      },
-      { status: 400 },
-    );
-  }
-
   try {
     const { id } = await params;
-    const task = await taskService.update(id, result.data);
+    const parsedId = taskIdParamSchema.safeParse(id);
+    if (!parsedId.success) return invalidTaskIdResponse();
+    const task = await taskService.update(parsedId.data, result.data);
 
     if (!task) {
       return Response.json({ error: "Tarefa não encontrada" }, { status: 404 });
     }
 
     return Response.json(task, { status: 200 });
-  } catch {
+  } catch (error) {
+    if (error instanceof TaskContextNotFoundError) {
+      return Response.json({ error: "Contexto não encontrado" }, { status: 404 });
+    }
     return Response.json({ error: "Erro interno do servidor" }, { status: 500 });
   }
 }
@@ -78,7 +84,9 @@ export async function PUT(request: Request, { params }: TaskRouteContext) {
 export async function DELETE(_request: Request, { params }: TaskRouteContext) {
   try {
     const { id } = await params;
-    const deleted = await taskService.delete(id);
+    const parsedId = taskIdParamSchema.safeParse(id);
+    if (!parsedId.success) return invalidTaskIdResponse();
+    const deleted = await taskService.delete(parsedId.data);
 
     if (!deleted) {
       return Response.json({ error: "Tarefa não encontrada" }, { status: 404 });

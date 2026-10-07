@@ -1,3 +1,4 @@
+import { TaskContextNotFoundError } from "@/modules/tarefas/errors/task-context-not-found.error";
 import { createTaskSchema, taskFiltersSchema } from "@/modules/tarefas/schemas/task.schema";
 import { taskService } from "@/modules/tarefas/task.container";
 
@@ -62,7 +63,10 @@ export async function POST(request: Request) {
   try {
     const task = await taskService.create(result.data);
     return Response.json(task, { status: 201 });
-  } catch {
+  } catch (error) {
+    if (error instanceof TaskContextNotFoundError) {
+      return Response.json({ error: "Contexto não encontrado" }, { status: 404 });
+    }
     return Response.json({ error: "Erro interno do servidor" }, { status: 500 });
   }
 }

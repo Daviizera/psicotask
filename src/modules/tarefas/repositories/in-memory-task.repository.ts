@@ -1,5 +1,3 @@
-import { randomUUID } from "node:crypto";
-
 import type {
   CreateTaskData,
   Task,
@@ -9,21 +7,28 @@ import type {
 import type { TaskRepository } from "./task.repository";
 
 export class InMemoryTaskRepository implements TaskRepository {
+  private nextId = 1;
   private tasks: Task[] = [
     {
-      id: randomUUID(),
+      id: this.nextId++,
+      contextoId: 1,
+      dataCriacao: "2026-10-01",
       titulo: "Revisar agenda semanal",
       status: "PENDENTE",
       prioridade: "MEDIA",
     },
     {
-      id: randomUUID(),
+      id: this.nextId++,
+      contextoId: 1,
+      dataCriacao: "2026-10-01",
       titulo: "Preparar material de estudo",
       status: "EM_ANDAMENTO",
       prioridade: "ALTA",
     },
     {
-      id: randomUUID(),
+      id: this.nextId++,
+      contextoId: 1,
+      dataCriacao: "2026-10-01",
       titulo: "Organizar tarefas administrativas",
       status: "PENDENTE",
       prioridade: "BAIXA",
@@ -41,18 +46,27 @@ export class InMemoryTaskRepository implements TaskRepository {
       .map((task) => ({ ...task }));
   }
 
-  async findById(id: string): Promise<Task | null> {
+  async findById(id: number): Promise<Task | null> {
     const task = this.tasks.find((task) => task.id === id);
     return task ? { ...task } : null;
   }
 
   async create(data: CreateTaskData): Promise<Task> {
-    const task: Task = { ...data, id: randomUUID() };
+    const task: Task = {
+      ...data,
+      id: this.nextId++,
+      dataCriacao: new Intl.DateTimeFormat("en-CA", {
+        timeZone: "America/Fortaleza",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+      }).format(new Date()),
+    };
     this.tasks.push(task);
     return { ...task };
   }
 
-  async update(id: string, data: UpdateTaskInput): Promise<Task | null> {
+  async update(id: number, data: UpdateTaskInput): Promise<Task | null> {
     const task = this.tasks.find((task) => task.id === id);
 
     if (!task) {
@@ -65,11 +79,12 @@ export class InMemoryTaskRepository implements TaskRepository {
     if (data.status !== undefined) task.status = data.status;
     if (data.prioridade !== undefined) task.prioridade = data.prioridade;
     if (data.prazo !== undefined) task.prazo = data.prazo;
+    if (data.contextoId !== undefined) task.contextoId = data.contextoId;
 
     return { ...task };
   }
 
-  async delete(id: string): Promise<boolean> {
+  async delete(id: number): Promise<boolean> {
     const index = this.tasks.findIndex((task) => task.id === id);
 
     if (index === -1) {

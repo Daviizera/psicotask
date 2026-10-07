@@ -7,8 +7,8 @@ import type {
 
 export interface TaskRepository {
   findAll(filters?: TaskFilters): Promise<Task[]>;
-  findById(id: string): Promise<Task | null>;
+  findById(id: number): Promise<Task | null>;
   create(data: CreateTaskData): Promise<Task>;
-  update(id: string, data: UpdateTaskInput): Promise<Task | null>;
-  delete(id: string): Promise<boolean>;
+  update(id: number, data: UpdateTaskInput): Promise<Task | null>;
+  delete(id: number): Promise<boolean>;
 }

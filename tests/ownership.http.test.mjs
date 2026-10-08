@@ -348,12 +348,27 @@ test("Autenticação e ownership por HTTP real com duas sessões", { skip: !base
       }, 400);
     });
 
-    await t.test("RESTRICT preserva contexto referenciado e DELETE remove somente recursos próprios", async () => {
+    await t.test("RESTRICT retorna 409 sem alterar contexto/tarefas; DELETE remove contextos sem vínculos", async () => {
       for (const user of users) {
         const protectedContextId = user.contexts[1].id;
-        const result = await request(`/api/contextos/${protectedContextId}`, { method: "DELETE", cookie: user.cookie }, 500);
-        assert.deepEqual(result.body, { error: "Erro interno do servidor" });
-        assert.ok(await prisma.contexto.findUnique({ where: { id: protectedContextId } }));
+        const beforeContext = await prisma.contexto.findUnique({ where: { id: protectedContextId } });
+        const beforeTasks = await prisma.tarefa.findMany({ where: { contextoId: protectedContextId }, orderBy: { id: "asc" } });
+        assert.ok(beforeContext);
+        assert.ok(beforeTasks.length > 0, "O contexto deve possuir tarefas persistidas antes da exclusão.");
+        const path = `/api/contextos/${protectedContextId}`;
+        await request(path, { method: "DELETE" }, 401);
+        const other = users.find(({ id }) => id !== user.id);
+        await request(path, { method: "DELETE", cookie: other.cookie }, 404);
+        const result = await request(path, { method: "DELETE", cookie: user.cookie }, 409);
+        assert.deepEqual(result.body, {
+          error: "Não é possível excluir um contexto que possui tarefas vinculadas.",
+        });
+        assert.deepEqual(await prisma.contexto.findUnique({ where: { id: protectedContextId } }), beforeContext);
+        assert.deepEqual(
+          await prisma.tarefa.findMany({ where: { contextoId: protectedContextId }, orderBy: { id: "asc" } }),
+          beforeTasks,
+        );
+        assert.deepEqual((await request(path, { cookie: user.cookie })).body, user.contexts[1]);
         for (const [resource, model, records] of [
           ["tarefas", "tarefa", user.tasks], ["compromissos", "compromisso", user.appointments],
           ["contextos", "contexto", user.contexts],

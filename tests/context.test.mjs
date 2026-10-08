@@ -100,6 +100,9 @@ const { contextSchema, contextIdParamSchema, createContextSchema, updateContextS
 const { PrismaContextRepository } = await jiti.import(
   "../src/modules/contextos/repositories/prisma-context.repository.ts",
 );
+const { ContextHasTasksError, CONTEXT_HAS_TASKS } = await jiti.import(
+  "../src/modules/contextos/errors/context-has-tasks.error.ts",
+);
 const { InMemoryContextRepository } = await jiti.import(
   "../src/modules/contextos/repositories/in-memory-context.repository.ts",
 );
@@ -242,10 +245,31 @@ test("repository resolve novamente o proprietário em cada operação, sem ID fi
   assert.equal(calls.filter(({ method }) => method === "resolveOwner").length, 9);
 });
 
-test("repository propaga RESTRICT e erros inesperados, sem convertê-los em ausência", async () => {
+test("repository traduz somente P2003 de exclusão em conflito de contexto vinculado, sem pré-consulta", async () => {
   const repository = new PrismaContextRepository();
+  const before = structuredClone(state.records);
   state.errors.deleteMany = knownError("P2003");
-  await assert.rejects(repository.delete(7), (error) => error === state.errors.deleteMany);
+  await assert.rejects(repository.delete(7), (error) => {
+    assert.ok(error instanceof ContextHasTasksError);
+    assert.equal(error.code, CONTEXT_HAS_TASKS);
+    assert.equal(error.message, "Não é possível excluir um contexto que possui tarefas vinculadas.");
+    assert.ok(!error.message.includes("DETALHE_INTERNO_NAO_EXPOR"));
+    return true;
+  });
+  assert.deepEqual(state.records, before);
+  assert.deepEqual(calls.map(({ method }) => method), ["resolveOwner", "deleteMany"]);
+  assert.deepEqual(calls[1].options, { where: { id: 7, psicologoId: 17 } });
+});
+
+test("repository propaga outros erros de exclusão, sem convertê-los em conflito ou ausência", async () => {
+  const repository = new PrismaContextRepository();
+  for (const error of [
+    knownError("P2025"), knownError("P2002"), new Error("DETALHE_INTERNO_NAO_EXPOR"),
+    Object.assign(new Error("DETALHE_INTERNO_NAO_EXPOR"), { code: "P2003" }),
+  ]) {
+    state.errors.deleteMany = error;
+    await assert.rejects(repository.delete(7), (caught) => caught === error);
+  }
   assert.equal(state.records.length, 2);
   state.errors.update = new Error("DETALHE_INTERNO_NAO_EXPOR");
   await assert.rejects(repository.update(7, { nome: "Novo" }), (error) => error === state.errors.update);
@@ -352,11 +376,31 @@ test("todos os handlers ocultam detalhes de erros inesperados em respostas 500",
   }
 });
 
-test("DELETE preserva RESTRICT e não expõe detalhes da FK", async () => {
+test("DELETE retorna 409 para contexto vinculado sem expor Prisma, constraint, SQL ou stack", async () => {
+  const before = structuredClone(state.records);
   state.errors.deleteMany = knownError("P2003");
   const response = await item.DELETE(request("DELETE"), routeContext(7));
-  assert.equal(response.status, 500);
-  assert.deepEqual(await response.json(), { error: "Erro interno do servidor" });
+  assert.equal(response.status, 409);
+  const text = await response.text();
+  assert.deepEqual(JSON.parse(text), {
+    error: "Não é possível excluir um contexto que possui tarefas vinculadas.",
+  });
+  assert.ok(!/Prisma|P2003|constraint|DELETE FROM|stack|DETALHE_INTERNO_NAO_EXPOR/i.test(text));
+  assert.deepEqual(state.records, before);
+  assert.equal(calls.filter(({ method }) => method === "deleteMany").length, 1);
+  assert.ok(calls.every(({ method }) => ["resolveOwner", "deleteMany"].includes(method)));
+});
+
+test("DELETE mantém 500 genérico para erros inesperados, inclusive outros códigos Prisma", async () => {
+  for (const error of [
+    knownError("P2025"), knownError("P2002"), new Error("DETALHE_INTERNO_NAO_EXPOR"),
+    Object.assign(new Error("DETALHE_INTERNO_NAO_EXPOR"), { code: "P2003" }),
+  ]) {
+    state.errors.deleteMany = error;
+    const response = await item.DELETE(request("DELETE"), routeContext(7));
+    assert.equal(response.status, 500);
+    assert.deepEqual(await response.json(), { error: "Erro interno do servidor" });
+  }
   assert.equal(state.records.some(({ id }) => id === 7), true);
 });
 

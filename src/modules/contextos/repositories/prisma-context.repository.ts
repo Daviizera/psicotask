@@ -1,6 +1,7 @@
 import { Prisma, type Contexto } from "@/generated/prisma/client";
 import { getCurrentPsychologistId } from "@/lib/current-psychologist";
 import { prisma } from "@/lib/prisma";
+import { ContextHasTasksError } from "../errors/context-has-tasks.error";
 import type {
   Context,
   CreateContextData,
@@ -80,11 +81,21 @@ export class PrismaContextRepository implements ContextRepository {
 
   async delete(id: number): Promise<boolean> {
     const psicologoId = await getCurrentPsychologistId();
-    const result = await prisma.contexto.deleteMany({
-      where: { id, psicologoId },
-    });
 
-    // Violações de RESTRICT continuam sendo rejeitadas pelo PostgreSQL.
-    return result.count > 0;
+    try {
+      const result = await prisma.contexto.deleteMany({
+        where: { id, psicologoId },
+      });
+      return result.count > 0;
+    } catch (error) {
+      // O PostgreSQL decide se a exclusão viola RESTRICT; não há pré-consulta.
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === "P2003"
+      ) {
+        throw new ContextHasTasksError();
+      }
+      throw error;
+    }
   }
 }

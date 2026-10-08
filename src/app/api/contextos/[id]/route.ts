@@ -1,6 +1,7 @@
 import { AuthenticationError } from "@/lib/auth/authentication.error";
 import { withAuthentication } from "@/lib/auth/with-authentication";
 import { contextService } from "@/modules/contextos/context.container";
+import { CONTEXT_HAS_TASKS } from "@/modules/contextos/errors/context-has-tasks.error";
 import {
   contextIdParamSchema,
   updateContextSchema,
@@ -106,6 +107,12 @@ export const DELETE = withAuthentication(async (_request: Request, { params }: C
     return new Response(null, { status: 204 });
   } catch (error) {
     if (error instanceof AuthenticationError) throw error;
+    if (error instanceof Error && "code" in error && error.code === CONTEXT_HAS_TASKS) {
+      return Response.json(
+        { error: "Não é possível excluir um contexto que possui tarefas vinculadas." },
+        { status: 409 },
+      );
+    }
     return Response.json({ error: "Erro interno do servidor" }, { status: 500 });
   }
 });

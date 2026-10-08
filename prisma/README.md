@@ -115,6 +115,12 @@ O container utiliza `PrismaContextRepository`; a versão em memória permanece n
 código com IDs numéricos, sem uso pelas rotas reais. DELETE preserva as FKs RESTRICT
 e nenhuma constraint foi alterada. Não existe seed de Contextos.
 
+Excluir um Contexto com Tarefas vinculadas retorna 409 com a mensagem pública
+"Não é possível excluir um contexto que possui tarefas vinculadas.". O repository
+traduz o erro conhecido de FK do Prisma após a tentativa de exclusão; não faz
+pré-consulta nem substitui a proteção RESTRICT do PostgreSQL. IDs inexistentes
+ou de outro proprietário continuam retornando 404.
+
 Na validação HTTP, criar apenas registros temporários, conferir a propriedade e
 os valores diretamente no PostgreSQL e removê-los ao final. O isolamento entre
 proprietários é coberto por testes com Prisma simulado e pela suíte HTTP com

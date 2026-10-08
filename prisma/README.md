@@ -125,8 +125,10 @@ executado por:
 npm.cmd run prisma:seed
 ```
 
-Esse script executa `prisma db seed`. O seed recusa `NODE_ENV=production` e exige
-o database `psicotask_dev_v2` antes de gravar qualquer registro.
+Esse script executa `node prisma/seed.mjs`, também registrado em `prisma.config.ts`
+para `prisma db seed`. A execução exige `NODE_ENV=development` ou não definido,
+o database `psicotask_dev_v2` e o schema `public`. O banco efetivamente conectado
+também é conferido antes de gravar qualquer registro.
 
 O único registro inserido é o psicólogo fictício definido na configuração
 central, com nome, email e registro profissional fictícios. O seed consulta no
@@ -135,14 +137,62 @@ o registro quando há exatamente um e aborta se houver dois ou mais. Assim, edit
 email ou registro profissional pela API não causa duplicação nem restaura os
 valores iniciais. A verificação/criação usa uma transação Serializable; uma
 concorrência incompatível aborta em vez de confirmar um segundo registro.
-Não são criados Contextos, Tarefas ou Compromissos.
+Não são criados Contextos, Tarefas ou Compromissos. A criação inicial exige
+`DEV_PSYCHOLOGIST_PASSWORD` no `.env`, com uma senha local de até 1024 caracteres;
+o placeholder de `.env.example` é rejeitado. Senhas não são aparadas nem
+normalizadas antes do hash. Quando já existe um perfil, o seed normal não exige
+essa variável e nunca altera seu hash, mesmo que o valor no ambiente tenha mudado.
 
-O hash é produzido pelo `scrypt` nativo de `node:crypto`, sem biblioteca de
-autenticação ou dependência adicional de hash. São usados `N=131072`, `r=8`,
-`p=1`, salt aleatório de 16 bytes e chave derivada de 64 bytes. A entrada é uma
-senha aleatória de 32 bytes, descartada após a derivação e nunca registrada em
-texto puro. O valor persistido identifica o algoritmo e contém os parâmetros,
-o salt e o hash; não é uma senha disponível para login.
+O hash é produzido pelo `scrypt` assíncrono nativo de `node:crypto`, compartilhado
+com a infraestrutura de autenticação, sem dependência adicional de hash. São
+usados `N=131072`, `r=8`, `p=1`, salt aleatório de 16 bytes e chave derivada de
+64 bytes. O formato existente é preservado:
+
+```text
+scrypt$131072$8$1$<salt hexadecimal>$<hash hexadecimal>
+```
+
+A senha vem exclusivamente de `DEV_PSYCHOLOGIST_PASSWORD`. Senha, hash,
+`AUTH_SECRET` e `DATABASE_URL` nunca são impressos. Apenas o hash é persistido.
+Um perfil criado pelo seed antigo continua com o hash original da senha
+aleatória descartada até uma redefinição explicitamente solicitada.
+
+Para definir a senha conhecida do perfil fictício existente:
+
+```powershell
+npm.cmd run prisma:seed -- --reset-password
+```
+
+Essa opção exige a variável de senha local e exatamente um psicólogo cujo email
+e registro profissional ainda correspondam à configuração fictícia central.
+Com zero perfis, múltiplos perfis ou identidade divergente, a operação aborta.
+Somente `senhaHash` é atualizado: ID, nome, email e registro profissional são
+preservados. Nenhum registro é excluído ou recriado, e o reset nunca acontece
+durante um seed normal. Se email/registro foram personalizados pela API, o script
+recusa o reset em vez de assumir que o usuário continua sendo o fictício.
+
+Os testes isolados de autenticação e seed podem ser executados sem banco:
+
+```powershell
+node --test tests/auth.test.mjs tests/seed.test.mjs
+```
+
+Para testar login, sessão e logout por HTTP real, configure `AUTH_SECRET` (segredo
+aleatório de pelo menos 32 bytes) e `DEV_PSYCHOLOGIST_PASSWORD` somente no `.env`
+local. O perfil deve ter a senha correspondente, definida pela opção explícita
+de reset acima quando necessário. Com o Next em desenvolvimento na porta 3112
+(`npm.cmd run dev -- --hostname 127.0.0.1 --port 3112`), execute:
+
+```powershell
+$env:AUTH_HTTP_BASE_URL = "http://127.0.0.1:3112"
+node --test tests/auth.http.test.mjs
+Remove-Item Env:AUTH_HTTP_BASE_URL
+```
+
+Esse teste exige o banco de desenvolvimento com um psicólogo e as outras três
+tabelas vazias, consulta o Prisma real e não altera perfil, hash ou dados. Sem
+`AUTH_HTTP_BASE_URL`, ele é ignorado na suíte comum. Os CRUDs existentes continuam
+sem exigir sessão nesta etapa; o resolvedor de desenvolvimento permanece intacto.
 
 Para validar a integração, registrar o perfil atual, testar GET/PUT por HTTP e
 conferir as alterações diretamente no PostgreSQL. Executar o seed também após
@@ -304,9 +354,10 @@ regra. O seed não reaplica a migration nem altera essas restrições.
   A FK garante consistência e não substitui autorização.
 - `dataCriacao` deve ser preenchida pelo banco e excluída dos payloads de criação
   e atualização aceitos do cliente.
-- `senhaHash` é obrigatória e não tem default. O seed usa hash real de uma senha
-  aleatória descartada; a futura criação de contas precisará definir seu fluxo
-  de credenciais. Autenticação não foi implementada. A implementação de Perfil em
+- `senhaHash` é obrigatória e não tem default. O seed usa hash real da senha local
+  informada por ambiente; perfis antigos só têm o hash alterado mediante
+  `--reset-password`, conforme descrito acima. A futura criação de contas ainda
+  precisará definir seu fluxo de credenciais. A implementação de Perfil em
   memória permanece disponível, mas seu container utiliza o repository Prisma.
   O hash nunca deve fazer parte da resposta pública de Perfil.
 - Prisma representa DATE/TIME por DateTime (Date no client). Os repositories

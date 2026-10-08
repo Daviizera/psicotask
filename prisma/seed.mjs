@@ -1,4 +1,3 @@
-import { randomBytes, scryptSync } from "node:crypto";
 import { config } from "dotenv";
 import { createJiti } from "jiti";
 
@@ -8,8 +7,8 @@ config({ quiet: true });
 const jiti = createJiti(import.meta.url, { tsconfigPaths: true, fsCache: false });
 
 function validateDevelopmentTarget() {
-  if (process.env.NODE_ENV === "production") {
-    throw new Error("Seed de desenvolvimento: execução em produção não permitida.");
+  if (process.env.NODE_ENV && process.env.NODE_ENV !== "development") {
+    throw new Error("Seed de desenvolvimento: use somente NODE_ENV=development ou não definido.");
   }
 
   if (!process.env.DATABASE_URL?.trim()) {
@@ -32,28 +31,31 @@ function validateDevelopmentTarget() {
   }
 }
 
-function createPasswordHash() {
-  const password = randomBytes(32);
-  const salt = randomBytes(16);
-
-  try {
-    // scrypt nativo: N=2^17, r=8, p=1; não adiciona dependência de autenticação.
-    const hash = scryptSync(password, salt, 64, {
-      N: 131072,
-      r: 8,
-      p: 1,
-      maxmem: 256 * 1024 * 1024,
-    });
-
-    return `scrypt$131072$8$1$${salt.toString("hex")}$${hash.toString("hex")}`;
-  } finally {
-    // Sem login nesta fase: a senha aleatória não é persistida nem exibida.
-    password.fill(0);
+function getDevelopmentPassword() {
+  const password = process.env.DEV_PSYCHOLOGIST_PASSWORD;
+  if (
+    !password?.trim() ||
+    password === "defina-uma-senha-local" ||
+    password.length > 1024
+  ) {
+    throw new Error(
+      "Seed de desenvolvimento: configure DEV_PSYCHOLOGIST_PASSWORD localmente, com até 1024 caracteres, sem usar o placeholder.",
+    );
   }
+
+  return password;
 }
 
 async function main() {
+  const args = process.argv.slice(2);
+  if (args.length > 1 || (args.length === 1 && args[0] !== "--reset-password")) {
+    throw new Error("Seed de desenvolvimento: argumento inválido; a única opção é --reset-password.");
+  }
+
+  const resetPassword = args[0] === "--reset-password";
   validateDevelopmentTarget();
+  // Um reset exige a senha mesmo se o banco estiver vazio ou em estado ambíguo.
+  if (resetPassword) getDevelopmentPassword();
   const { prisma } = await jiti.import("../src/lib/prisma.ts");
 
   try {
@@ -67,7 +69,7 @@ async function main() {
       async (transaction) => {
         const psychologists = await transaction.psicologo.findMany({
           take: 2,
-          select: { id: true },
+          select: { id: true, email: true, registroProfissional: true },
         });
 
         if (psychologists.length > 1) {
@@ -76,21 +78,54 @@ async function main() {
           );
         }
 
-        if (psychologists.length === 1) return;
+        if (psychologists.length === 1 && !resetPassword) return;
+
+        if (psychologists.length === 0 && resetPassword) {
+          throw new Error("Seed de desenvolvimento: --reset-password exige um psicólogo fictício já existente.");
+        }
 
         const { developmentPsychologist } = await jiti.import(
           "../src/config/development-psychologist.ts",
         );
 
-        await transaction.psicologo.create({
-          data: { ...developmentPsychologist, senhaHash: createPasswordHash() },
-          select: { id: true },
-        });
+        const psychologist = psychologists[0];
+        if (
+          resetPassword &&
+          (psychologist.email !== developmentPsychologist.email ||
+            psychologist.registroProfissional !== developmentPsychologist.registroProfissional)
+        ) {
+          throw new Error("Seed de desenvolvimento: o perfil existente não corresponde ao psicólogo fictício configurado; nenhuma senha foi alterada.");
+        }
+
+        const { hashPassword } = await jiti.import("../src/lib/auth/password.ts");
+        const senhaHash = await hashPassword(getDevelopmentPassword());
+
+        if (resetPassword) {
+          // A identidade também faz parte da escrita; nenhum dado público é alterado.
+          await transaction.psicologo.update({
+            where: {
+              id: psychologist.id,
+              email: developmentPsychologist.email,
+              registroProfissional: developmentPsychologist.registroProfissional,
+            },
+            data: { senhaHash },
+            select: { id: true },
+          });
+        } else {
+          await transaction.psicologo.create({
+            data: { ...developmentPsychologist, senhaHash },
+            select: { id: true },
+          });
+        }
       },
       { isolationLevel: "Serializable" },
     );
 
-    console.log("Psicólogo de desenvolvimento preparado com sucesso.");
+    console.log(
+      resetPassword
+        ? "Senha do psicólogo fictício de desenvolvimento redefinida com sucesso."
+        : "Psicólogo de desenvolvimento preparado; registros existentes foram preservados.",
+    );
   } finally {
     await prisma.$disconnect();
   }

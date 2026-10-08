@@ -1,19 +1,22 @@
+import { AuthenticationError } from "@/lib/auth/authentication.error";
+import { withAuthentication } from "@/lib/auth/with-authentication";
 import { psychologistService } from "@/modules/psicologos/psychologist.container";
 import { PSYCHOLOGIST_CONFLICT } from "@/modules/psicologos/errors/psychologist-conflict.error";
 import { updatePsychologistSchema } from "@/modules/psicologos/schemas/psychologist.schema";
 
 export const runtime = "nodejs";
 
-export async function GET() {
+export const GET = withAuthentication(async () => {
   try {
     const psychologist = await psychologistService.findCurrent();
     return Response.json(psychologist, { status: 200 });
-  } catch {
+  } catch (error) {
+    if (error instanceof AuthenticationError) throw error;
     return Response.json({ error: "Erro interno do servidor" }, { status: 500 });
   }
-}
+});
 
-export async function PUT(request: Request) {
+export const PUT = withAuthentication(async (request: Request) => {
   let body: unknown;
 
   try {
@@ -44,6 +47,7 @@ export async function PUT(request: Request) {
     const psychologist = await psychologistService.update(result.data);
     return Response.json(psychologist, { status: 200 });
   } catch (error) {
+    if (error instanceof AuthenticationError) throw error;
     if (
       error instanceof Error &&
       "code" in error &&
@@ -57,4 +61,4 @@ export async function PUT(request: Request) {
 
     return Response.json({ error: "Erro interno do servidor" }, { status: 500 });
   }
-}
+});

@@ -1,11 +1,13 @@
 import assert from "node:assert/strict";
 import { after, beforeEach, test } from "node:test";
 import { createJiti } from "jiti";
+import { fileURLToPath } from "node:url";
 
 // Testes isolados: não carregam .env nem abrem conexão com o PostgreSQL.
 const previousDatabaseUrl = process.env.DATABASE_URL;
 const previousNodeEnv = process.env.NODE_ENV;
 const previousPrisma = globalThis.psicoPrisma;
+const previousSessionId = globalThis.psicoTestSessionPsychologistId;
 process.env.DATABASE_URL = "postgresql://unused.invalid/isolated_tests";
 process.env.NODE_ENV = "test";
 
@@ -26,10 +28,11 @@ function selectPublicRecord(select) {
 
 globalThis.psicoPrisma = {
   psicologo: {
-    async findMany(options) {
-      calls.push({ method: "findMany", options });
-      assert.deepEqual(options, { take: 2, select: { id: true } });
-      return state.ids.slice(0, 2).map((id) => ({ id }));
+    async findUnique(options) {
+      calls.push({ method: "resolveOwner", options });
+      assert.deepEqual(options.select, { id: true });
+      assert.equal(options.where.id, globalThis.psicoTestSessionPsychologistId);
+      return state.ids.includes(options.where.id) ? { id: options.where.id } : null;
     },
     async findUniqueOrThrow(options) {
       calls.push({ method: "findUniqueOrThrow", options });
@@ -49,7 +52,15 @@ globalThis.psicoPrisma = {
   },
 };
 
-const jiti = createJiti(import.meta.url, { tsconfigPaths: true, fsCache: false });
+const jiti = createJiti(import.meta.url, {
+  // O alias explícito evita carregar cookies() fora de uma requisição Next.js.
+  tsconfigPaths: false,
+  fsCache: false,
+  alias: {
+    "@": fileURLToPath(new URL("../src", import.meta.url)),
+    "@/lib/auth/request-session": fileURLToPath(new URL("./helpers/request-session.mjs", import.meta.url)),
+  },
+});
 const { Prisma } = await jiti.import("../src/generated/prisma/client.ts");
 const { getCurrentPsychologistId } = await jiti.import("../src/lib/current-psychologist.ts");
 const { psychologistSchema, updatePsychologistSchema } = await jiti.import(
@@ -67,10 +78,11 @@ const { InMemoryPsychologistRepository } = await jiti.import(
 const { GET, PUT } = await jiti.import("../src/app/api/perfil/route.ts");
 
 beforeEach(() => {
+  globalThis.psicoTestSessionPsychologistId = 17;
   process.env.NODE_ENV = "test";
   calls = [];
   state = {
-    ids: [17],
+    ids: [17, 83],
     record: {
       id: 17,
       nome: "Perfil de teste",
@@ -84,6 +96,8 @@ beforeEach(() => {
 });
 
 after(() => {
+  if (previousSessionId === undefined) delete globalThis.psicoTestSessionPsychologistId;
+  else globalThis.psicoTestSessionPsychologistId = previousSessionId;
   if (previousDatabaseUrl === undefined) delete process.env.DATABASE_URL;
   else process.env.DATABASE_URL = previousDatabaseUrl;
   if (previousNodeEnv === undefined) delete process.env.NODE_ENV;
@@ -134,27 +148,36 @@ test("schema de atualização aceita campos parciais e rejeita vazios, inválido
   }
 });
 
-test("resolvedor exige seed quando não existe psicólogo", async () => {
+test("resolvedor rejeita sessão ausente antes de consultar o banco", async () => {
+  globalThis.psicoTestSessionPsychologistId = null;
+  await assert.rejects(getCurrentPsychologistId(), { code: "AUTHENTICATION_REQUIRED" });
+  assert.equal(calls.length, 0);
+});
+
+test("resolvedor rejeita sessão cujo psicólogo foi removido", async () => {
   state.ids = [];
-  await assert.rejects(getCurrentPsychologistId(), /seed/i);
+  await assert.rejects(getCurrentPsychologistId(), { code: "AUTHENTICATION_REQUIRED" });
   assert.equal(calls.length, 1);
 });
 
-test("resolvedor encontra ID não fixo sem depender de email ou registro profissional", async () => {
-  state.ids = [83];
+test("resolvedor usa exclusivamente o ID da sessão mesmo com vários psicólogos", async () => {
+  globalThis.psicoTestSessionPsychologistId = 83;
   assert.equal(await getCurrentPsychologistId(), 83);
-  assert.deepEqual(calls, [{ method: "findMany", options: { take: 2, select: { id: true } } }]);
+  assert.deepEqual(calls, [{ method: "resolveOwner", options: { where: { id: 83 }, select: { id: true } } }]);
 });
 
-test("resolvedor rejeita dois ou mais psicólogos como estado ambíguo", async () => {
-  state.ids = [17, 83, 99];
-  await assert.rejects(getCurrentPsychologistId(), /amb[íi]guo/i);
+test("resolvedor não compartilha a identidade entre sessões", async () => {
+  assert.equal(await getCurrentPsychologistId(), 17);
+  globalThis.psicoTestSessionPsychologistId = 83;
+  assert.equal(await getCurrentPsychologistId(), 83);
+  globalThis.psicoTestSessionPsychologistId = 17;
+  assert.equal(await getCurrentPsychologistId(), 17);
 });
 
-test("resolvedor de desenvolvimento permanece bloqueado em produção", async () => {
+test("resolvedor autenticado também funciona em produção", async () => {
   process.env.NODE_ENV = "production";
-  await assert.rejects(getCurrentPsychologistId(), /produ[çc][ãa]o/i);
-  assert.equal(calls.length, 0);
+  assert.equal(await getCurrentPsychologistId(), 17);
+  assert.equal(calls.length, 1);
 });
 
 test("repository consulta somente os quatro campos públicos do psicólogo atual", async () => {
@@ -200,7 +223,7 @@ test("repository preserva erros inesperados para tratamento 500 do handler", asy
 });
 
 test("GET e PUT usam o repository Prisma e continuam funcionando após edição dos identificadores", async () => {
-  const initial = await GET();
+  const initial = await GET(new Request("http://localhost/api/perfil"));
   assert.equal(initial.status, 200);
   assert.equal((await initial.json()).id, 17);
 
@@ -213,7 +236,7 @@ test("GET e PUT usam o repository Prisma e continuam funcionando após edição 
     assert.equal(response.status, 200);
     const updated = await response.json();
     for (const [key, value] of Object.entries(payload)) assert.equal(updated[key], value);
-    const currentResponse = await GET();
+    const currentResponse = await GET(new Request("http://localhost/api/perfil"));
     assert.equal(currentResponse.status, 200);
     assert.deepEqual(await currentResponse.json(), updated);
     assert.equal(updated.id, 17);
@@ -221,7 +244,7 @@ test("GET e PUT usam o repository Prisma e continuam funcionando após edição 
   }
 });
 
-test("PUT rejeita corpo vazio, inválido e campos protegidos antes de consultar banco", async () => {
+test("PUT rejeita corpo vazio, inválido e campos protegidos após validar a sessão", async () => {
   for (const payload of [
     {}, null, [], { nome: " " }, { email: "invalido" },
     { nome: "Nome", id: 18 }, { nome: "Nome", senhaHash: "INDEVIDO" },
@@ -236,7 +259,26 @@ test("PUT rejeita corpo vazio, inválido e campos protegidos antes de consultar 
     method: "PUT", body: "{",
   }));
   assert.equal(malformedResponse.status, 400);
+  assert.ok(calls.length > 0);
+  assert.ok(calls.every(({ method }) => method === "resolveOwner"));
+});
+
+test("Perfil exige sessão antes de ler ou validar alterações", async () => {
+  globalThis.psicoTestSessionPsychologistId = null;
+  for (const response of [await GET(new Request("http://localhost/api/perfil")), await PUT(putRequest({}))]) {
+    assert.equal(response.status, 401);
+    assert.equal(response.headers.get("cache-control"), "no-store");
+    assert.deepEqual(await response.json(), { error: "Não autenticado" });
+  }
   assert.equal(calls.length, 0);
+});
+
+test("Perfil rejeita sessão de psicólogo removido antes de consultar dados públicos", async () => {
+  state.ids = [];
+  for (const response of [await GET(new Request("http://localhost/api/perfil")), await PUT(putRequest({ nome: "Nome" }))]) {
+    assert.equal(response.status, 401);
+  }
+  assert.ok(calls.every(({ method }) => method === "resolveOwner"));
 });
 
 test("PUT converte conflito UNIQUE em 409 sem expor detalhes Prisma", async () => {
@@ -254,7 +296,7 @@ test("PUT converte conflito UNIQUE em 409 sem expor detalhes Prisma", async () =
 test("GET e PUT ocultam detalhes dos erros inesperados em respostas 500", async () => {
   state.readError = new Error("DETALHE_INTERNO_NAO_EXPOR");
   state.updateError = new Error("DETALHE_INTERNO_NAO_EXPOR");
-  for (const response of [await GET(), await PUT(putRequest({ nome: "Nome" }))]) {
+  for (const response of [await GET(new Request("http://localhost/api/perfil")), await PUT(putRequest({ nome: "Nome" }))]) {
     assert.equal(response.status, 500);
     assert.deepEqual(await response.json(), { error: "Erro interno do servidor" });
   }

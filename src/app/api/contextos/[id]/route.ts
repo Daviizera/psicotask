@@ -1,3 +1,5 @@
+import { AuthenticationError } from "@/lib/auth/authentication.error";
+import { withAuthentication } from "@/lib/auth/with-authentication";
 import { contextService } from "@/modules/contextos/context.container";
 import {
   contextIdParamSchema,
@@ -25,7 +27,7 @@ function invalidContextIdResponse() {
   );
 }
 
-export async function GET(_request: Request, { params }: ContextRouteContext) {
+export const GET = withAuthentication(async (_request: Request, { params }: ContextRouteContext) => {
   try {
     const { id } = await params;
     const parsedId = contextIdParamSchema.safeParse(id);
@@ -38,12 +40,13 @@ export async function GET(_request: Request, { params }: ContextRouteContext) {
     }
 
     return Response.json(context, { status: 200 });
-  } catch {
+  } catch (error) {
+    if (error instanceof AuthenticationError) throw error;
     return Response.json({ error: "Erro interno do servidor" }, { status: 500 });
   }
-}
+});
 
-export async function PUT(request: Request, { params }: ContextRouteContext) {
+export const PUT = withAuthentication(async (request: Request, { params }: ContextRouteContext) => {
   let body: unknown;
 
   try {
@@ -82,12 +85,13 @@ export async function PUT(request: Request, { params }: ContextRouteContext) {
     }
 
     return Response.json(context, { status: 200 });
-  } catch {
+  } catch (error) {
+    if (error instanceof AuthenticationError) throw error;
     return Response.json({ error: "Erro interno do servidor" }, { status: 500 });
   }
-}
+});
 
-export async function DELETE(_request: Request, { params }: ContextRouteContext) {
+export const DELETE = withAuthentication(async (_request: Request, { params }: ContextRouteContext) => {
   try {
     const { id } = await params;
     const parsedId = contextIdParamSchema.safeParse(id);
@@ -100,7 +104,8 @@ export async function DELETE(_request: Request, { params }: ContextRouteContext)
     }
 
     return new Response(null, { status: 204 });
-  } catch {
+  } catch (error) {
+    if (error instanceof AuthenticationError) throw error;
     return Response.json({ error: "Erro interno do servidor" }, { status: 500 });
   }
-}
+});

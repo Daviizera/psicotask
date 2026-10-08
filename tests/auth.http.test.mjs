@@ -121,9 +121,12 @@ test("Auth por HTTP real com PostgreSQL de desenvolvimento", { skip: !baseUrl },
         method: "POST", headers: { origin: "https://outro.example", "x-forwarded-host": "outro.example" },
       }, 403);
     });
-    await t.test("CRUDs atuais e Resumo continuam acessíveis sem sessão", async () => {
+    await t.test("CRUDs e Resumo exigem sessão e continuam acessíveis após login", async () => {
+      const authenticated = await request("/api/auth/login", login({ email, senha: password }), 200);
+      cookie = authenticated.response.headers.get("set-cookie").split(";")[0];
       for (const path of ["/api/perfil", "/api/contextos", "/api/tarefas", "/api/tarefas?status=PENDENTE&prioridade=ALTA", "/api/compromissos", "/api/resumo"]) {
-        await request(path, {}, 200);
+        await request(path, {}, 401);
+        await request(path, me(cookie), 200);
       }
     });
     await t.test("banco permanece intacto, inclusive hash do psicólogo", async () => {

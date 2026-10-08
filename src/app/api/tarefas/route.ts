@@ -1,10 +1,12 @@
+import { AuthenticationError } from "@/lib/auth/authentication.error";
+import { withAuthentication } from "@/lib/auth/with-authentication";
 import { TaskContextNotFoundError } from "@/modules/tarefas/errors/task-context-not-found.error";
 import { createTaskSchema, taskFiltersSchema } from "@/modules/tarefas/schemas/task.schema";
 import { taskService } from "@/modules/tarefas/task.container";
 
 export const runtime = "nodejs";
 
-export async function GET(request: Request) {
+export const GET = withAuthentication(async (request: Request) => {
   try {
     const { searchParams } = new URL(request.url);
     const filters = Object.fromEntries(
@@ -28,12 +30,13 @@ export async function GET(request: Request) {
 
     const tasks = await taskService.findAll(result.data);
     return Response.json(tasks, { status: 200 });
-  } catch {
+  } catch (error) {
+    if (error instanceof AuthenticationError) throw error;
     return Response.json({ error: "Erro interno do servidor" }, { status: 500 });
   }
-}
+});
 
-export async function POST(request: Request) {
+export const POST = withAuthentication(async (request: Request) => {
   let body: unknown;
 
   try {
@@ -64,9 +67,10 @@ export async function POST(request: Request) {
     const task = await taskService.create(result.data);
     return Response.json(task, { status: 201 });
   } catch (error) {
+    if (error instanceof AuthenticationError) throw error;
     if (error instanceof TaskContextNotFoundError) {
       return Response.json({ error: "Contexto não encontrado" }, { status: 404 });
     }
     return Response.json({ error: "Erro interno do servidor" }, { status: 500 });
   }
-}
+});

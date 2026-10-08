@@ -1,11 +1,13 @@
 import assert from "node:assert/strict";
 import { after, beforeEach, test } from "node:test";
 import { createJiti } from "jiti";
+import { fileURLToPath } from "node:url";
 
 // Testes isolados: não carregam .env nem abrem conexão com PostgreSQL.
 const previousDatabaseUrl = process.env.DATABASE_URL;
 const previousNodeEnv = process.env.NODE_ENV;
 const previousPrisma = globalThis.psicoPrisma;
+const previousSessionId = globalThis.psicoTestSessionPsychologistId;
 process.env.DATABASE_URL = "postgresql://unused.invalid/isolated_tests";
 process.env.NODE_ENV = "test";
 
@@ -57,10 +59,11 @@ function assertWritable(data, creating) {
 
 globalThis.psicoPrisma = {
   psicologo: {
-    async findMany(options) {
+    async findUnique(options) {
       recordCall("resolveOwner", options);
-      assert.deepEqual(options, { take: 2, select: { id: true } });
-      return state.ownerIds.slice(0, 2).map((id) => ({ id }));
+      assert.deepEqual(options.select, { id: true });
+      assert.equal(options.where.id, globalThis.psicoTestSessionPsychologistId);
+      return state.ownerIds.includes(options.where.id) ? { id: options.where.id } : null;
     },
   },
   compromisso: {
@@ -100,7 +103,15 @@ globalThis.psicoPrisma = {
   },
 };
 
-const jiti = createJiti(import.meta.url, { tsconfigPaths: true, fsCache: false });
+const jiti = createJiti(import.meta.url, {
+  // O alias explícito evita carregar cookies() fora de uma requisição Next.js.
+  tsconfigPaths: false,
+  fsCache: false,
+  alias: {
+    "@": fileURLToPath(new URL("../src", import.meta.url)),
+    "@/lib/auth/request-session": fileURLToPath(new URL("./helpers/request-session.mjs", import.meta.url)),
+  },
+});
 ({ Prisma } = await jiti.import("../src/generated/prisma/client.ts"));
 const { appointmentSchema, createAppointmentSchema, updateAppointmentSchema, appointmentIdParamSchema } =
   await jiti.import("../src/modules/compromissos/schemas/appointment.schema.ts");
@@ -117,9 +128,10 @@ const collection = await jiti.import("../src/app/api/compromissos/route.ts");
 const item = await jiti.import("../src/app/api/compromissos/[id]/route.ts");
 
 beforeEach(() => {
+  globalThis.psicoTestSessionPsychologistId = 17;
   calls = [];
   state = {
-    ownerIds: [17], nextId: 30, errors: {},
+    ownerIds: [17, 83], nextId: 30, errors: {},
     records: [
       {
         id: 7, psicologoId: 17, titulo: "Consulta atual", descricao: null,
@@ -144,6 +156,8 @@ beforeEach(() => {
 });
 
 after(() => {
+  if (previousSessionId === undefined) delete globalThis.psicoTestSessionPsychologistId;
+  else globalThis.psicoTestSessionPsychologistId = previousSessionId;
   if (previousDatabaseUrl === undefined) delete process.env.DATABASE_URL;
   else process.env.DATABASE_URL = previousDatabaseUrl;
   if (previousNodeEnv === undefined) delete process.env.NODE_ENV;
@@ -287,7 +301,7 @@ test("repository trata consulta, atualização e exclusão de recurso alheio com
 test("repository resolve proprietário em cada operação sem capturar ID fixo", async () => {
   const repository = new PrismaAppointmentRepository();
   await repository.findAll();
-  state.ownerIds = [83];
+  globalThis.psicoTestSessionPsychologistId = 83;
   assert.deepEqual((await repository.findAll()).map(({ id }) => id), [8]);
   assert.equal(await repository.findById(7), null);
   assert.equal((await repository.findById(8)).id, 8);
@@ -381,7 +395,7 @@ test("service persiste o par final validado ao alterar cada horário separadamen
 });
 
 test("container real utiliza Prisma no CRUD das rotas com IDs numéricos e datas/horas públicas", async () => {
-  const list = await collection.GET();
+  const list = await collection.GET(request("GET"));
   assert.equal(list.status, 200);
   assert.deepEqual((await list.json()).map(({ id }) => id), [7, 9]);
   const response = await collection.POST(request("POST", { ...input, titulo: " Nova " }));
@@ -418,7 +432,7 @@ test("rotas aceitam todos os status e preservam regra de horário após mudança
   assert.equal((await valid.json()).horaFim, "10:00");
 });
 
-test("POST/PUT rejeitam payloads inválidos, campos protegidos e JSON malformado antes de consultar banco", async () => {
+test("POST/PUT rejeitam payloads inválidos, campos protegidos e JSON malformado antes de consultar os dados do módulo", async () => {
   const invalid = [
     {}, null, [], { titulo: " " }, { titulo: 7 }, { titulo: "T".repeat(256) },
     { descricao: null }, { data: null }, { data: "0000-01-01" }, { data: "2026-02-30" },
@@ -434,16 +448,18 @@ test("POST/PUT rejeitam payloads inválidos, campos protegidos e JSON malformado
     const malformed = new Request("http://localhost/api/compromissos", { method, body: "{" });
     await assertInvalid(method === "POST" ? await collection.POST(malformed) : await item.PUT(malformed, routeContext(7)));
   }
-  assert.equal(calls.length, 0);
+  assert.ok(calls.length > 0);
+  assert.ok(calls.every(({ method }) => method === "resolveOwner"));
 });
 
-test("IDs inválidos retornam 400 antes de consultar o banco", async () => {
+test("IDs inválidos retornam 400 antes de consultar os dados do módulo", async () => {
   for (const id of ["0", "-1", "1.5", "1.0", "abc", "1e2", "+1", "1 ", "1\n", "0x10", "2147483648", "99999999999999999999999"]) {
     await assertInvalid(await item.GET(request(), routeContext(id)));
     await assertInvalid(await item.PUT(request("PUT", { titulo: "Novo" }), routeContext(id)));
     await assertInvalid(await item.DELETE(request("DELETE"), routeContext(id)));
   }
-  assert.equal(calls.length, 0);
+  assert.ok(calls.length > 0);
+  assert.ok(calls.every(({ method }) => method === "resolveOwner"));
 });
 
 test("rotas retornam o mesmo 404 para IDs ausentes ou de outro proprietário sem alterar dados", async () => {
@@ -466,7 +482,7 @@ test("todos os handlers ocultam detalhes internos em erro inesperado", async () 
     state.errors[method] = new Error("DETALHE_INTERNO_NAO_EXPOR");
   }
   for (const response of [
-    await collection.GET(),
+    await collection.GET(request("GET")),
     await collection.POST(request("POST", input)),
     await item.GET(request(), routeContext(7)),
     await item.PUT(request("PUT", { titulo: "Novo" }), routeContext(7)),
@@ -475,4 +491,33 @@ test("todos os handlers ocultam detalhes internos em erro inesperado", async () 
     assert.equal(response.status, 500);
     assert.deepEqual(await response.json(), { error: "Erro interno do servidor" });
   }
+});
+
+test("handlers exigem sessão antes de validar payload, filtros e ID", async () => {
+  globalThis.psicoTestSessionPsychologistId = null;
+  for (const response of [
+    await collection.GET(request("GET")),
+    await collection.POST(request("POST", {})),
+    await item.GET(request("GET"), routeContext("inválido")),
+    await item.PUT(request("PUT", {}), routeContext("inválido")),
+    await item.DELETE(request("DELETE"), routeContext("inválido")),
+  ]) {
+    assert.equal(response.status, 401);
+    assert.equal(response.headers.get("cache-control"), "no-store");
+    assert.deepEqual(await response.json(), { error: "Não autenticado" });
+  }
+  assert.equal(calls.length, 0);
+});
+
+test("sessão de proprietário removido não acessa dados do módulo", async () => {
+  state.ownerIds = [83];
+  for (const response of [
+    await collection.GET(request("GET")),
+    await item.GET(request("GET"), routeContext(7)),
+    await item.PUT(request("PUT", { titulo: "Alteração" }), routeContext(7)),
+    await item.DELETE(request("DELETE"), routeContext(7)),
+  ]) {
+    assert.equal(response.status, 401);
+  }
+  assert.ok(calls.every(({ method }) => method === "resolveOwner"));
 });

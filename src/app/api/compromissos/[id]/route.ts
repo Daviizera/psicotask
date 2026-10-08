@@ -1,3 +1,5 @@
+import { AuthenticationError } from "@/lib/auth/authentication.error";
+import { withAuthentication } from "@/lib/auth/with-authentication";
 import { appointmentService } from "@/modules/compromissos/appointment.container";
 import {
   appointmentIdParamSchema,
@@ -23,7 +25,7 @@ function invalidAppointmentIdResponse() {
   );
 }
 
-export async function GET(_request: Request, { params }: AppointmentRouteContext) {
+export const GET = withAuthentication(async (_request: Request, { params }: AppointmentRouteContext) => {
   try {
     const { id } = await params;
     const parsedId = appointmentIdParamSchema.safeParse(id);
@@ -35,12 +37,13 @@ export async function GET(_request: Request, { params }: AppointmentRouteContext
     }
 
     return Response.json(appointment, { status: 200 });
-  } catch {
+  } catch (error) {
+    if (error instanceof AuthenticationError) throw error;
     return Response.json({ error: "Erro interno do servidor" }, { status: 500 });
   }
-}
+});
 
-export async function PUT(request: Request, { params }: AppointmentRouteContext) {
+export const PUT = withAuthentication(async (request: Request, { params }: AppointmentRouteContext) => {
   let body: unknown;
 
   try {
@@ -79,6 +82,7 @@ export async function PUT(request: Request, { params }: AppointmentRouteContext)
 
     return Response.json(appointment, { status: 200 });
   } catch (error) {
+    if (error instanceof AuthenticationError) throw error;
     if (
       error instanceof Error &&
       "code" in error &&
@@ -97,9 +101,9 @@ export async function PUT(request: Request, { params }: AppointmentRouteContext)
 
     return Response.json({ error: "Erro interno do servidor" }, { status: 500 });
   }
-}
+});
 
-export async function DELETE(_request: Request, { params }: AppointmentRouteContext) {
+export const DELETE = withAuthentication(async (_request: Request, { params }: AppointmentRouteContext) => {
   try {
     const { id } = await params;
     const parsedId = appointmentIdParamSchema.safeParse(id);
@@ -111,7 +115,8 @@ export async function DELETE(_request: Request, { params }: AppointmentRouteCont
     }
 
     return new Response(null, { status: 204 });
-  } catch {
+  } catch (error) {
+    if (error instanceof AuthenticationError) throw error;
     return Response.json({ error: "Erro interno do servidor" }, { status: 500 });
   }
-}
+});

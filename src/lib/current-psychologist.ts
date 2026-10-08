@@ -1,28 +1,18 @@
 import { prisma } from "@/lib/prisma";
+import { AuthenticationError } from "@/lib/auth/authentication.error";
+import { readSessionPsychologistId } from "@/lib/auth/request-session";
 
-// Ponto temporário de resolução do proprietário, substituível pela autenticação.
-// Não depende de campos editáveis do perfil nem de um ID fixo.
+// Repositories dependem apenas deste resolvedor, sem ler cookies ou tokens.
 export async function getCurrentPsychologistId(): Promise<number> {
-  if (process.env.NODE_ENV === "production") {
-    throw new Error("O psicólogo de desenvolvimento não está disponível em produção.");
-  }
+  const id = await readSessionPsychologistId();
+  if (id === null) throw new AuthenticationError();
 
-  const psychologists = await prisma.psicologo.findMany({
-    take: 2,
+  // Um token válido não autoriza um perfil que já tenha sido removido.
+  const psychologist = await prisma.psicologo.findUnique({
+    where: { id },
     select: { id: true },
   });
 
-  if (psychologists.length === 0) {
-    throw new Error(
-      "Psicólogo de desenvolvimento não encontrado. Execute npm run prisma:seed.",
-    );
-  }
-
-  if (psychologists.length > 1) {
-    throw new Error(
-      "Estado de desenvolvimento ambíguo: existe mais de um psicólogo.",
-    );
-  }
-
-  return psychologists[0].id;
+  if (!psychologist) throw new AuthenticationError();
+  return psychologist.id;
 }

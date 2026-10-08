@@ -1,11 +1,13 @@
 import assert from "node:assert/strict";
 import { after, beforeEach, test } from "node:test";
 import { createJiti } from "jiti";
+import { fileURLToPath } from "node:url";
 
 // Testes isolados: não carregam .env nem abrem conexão com o PostgreSQL.
 const previousDatabaseUrl = process.env.DATABASE_URL;
 const previousNodeEnv = process.env.NODE_ENV;
 const previousPrisma = globalThis.psicoPrisma;
+const previousSessionId = globalThis.psicoTestSessionPsychologistId;
 process.env.DATABASE_URL = "postgresql://unused.invalid/isolated_tests";
 process.env.NODE_ENV = "test";
 
@@ -39,10 +41,11 @@ function matches(record, where) {
 
 globalThis.psicoPrisma = {
   psicologo: {
-    async findMany(options) {
+    async findUnique(options) {
       recordCall("resolveOwner", options);
-      assert.deepEqual(options, { take: 2, select: { id: true } });
-      return state.ownerIds.slice(0, 2).map((id) => ({ id }));
+      assert.deepEqual(options.select, { id: true });
+      assert.equal(options.where.id, globalThis.psicoTestSessionPsychologistId);
+      return state.ownerIds.includes(options.where.id) ? { id: options.where.id } : null;
     },
   },
   contexto: {
@@ -82,7 +85,15 @@ globalThis.psicoPrisma = {
   },
 };
 
-const jiti = createJiti(import.meta.url, { tsconfigPaths: true, fsCache: false });
+const jiti = createJiti(import.meta.url, {
+  // O alias explícito evita carregar cookies() fora de uma requisição Next.js.
+  tsconfigPaths: false,
+  fsCache: false,
+  alias: {
+    "@": fileURLToPath(new URL("../src", import.meta.url)),
+    "@/lib/auth/request-session": fileURLToPath(new URL("./helpers/request-session.mjs", import.meta.url)),
+  },
+});
 ({ Prisma } = await jiti.import("../src/generated/prisma/client.ts"));
 const { contextSchema, contextIdParamSchema, createContextSchema, updateContextSchema } =
   await jiti.import("../src/modules/contextos/schemas/context.schema.ts");
@@ -97,9 +108,10 @@ const collection = await jiti.import("../src/app/api/contextos/route.ts");
 const item = await jiti.import("../src/app/api/contextos/[id]/route.ts");
 
 beforeEach(() => {
+  globalThis.psicoTestSessionPsychologistId = 17;
   calls = [];
   state = {
-    ownerIds: [17],
+    ownerIds: [17, 83],
     nextId: 30,
     records: [
       { id: 7, psicologoId: 17, nome: "Contexto atual", descricao: null },
@@ -110,6 +122,8 @@ beforeEach(() => {
 });
 
 after(() => {
+  if (previousSessionId === undefined) delete globalThis.psicoTestSessionPsychologistId;
+  else globalThis.psicoTestSessionPsychologistId = previousSessionId;
   if (previousDatabaseUrl === undefined) delete process.env.DATABASE_URL;
   else process.env.DATABASE_URL = previousDatabaseUrl;
   if (previousNodeEnv === undefined) delete process.env.NODE_ENV;
@@ -215,7 +229,7 @@ test("repository exclui somente registros do proprietário atual", async () => {
 test("repository resolve novamente o proprietário em cada operação, sem ID fixo", async () => {
   const repository = new PrismaContextRepository();
   await repository.findAll();
-  state.ownerIds = [83];
+  globalThis.psicoTestSessionPsychologistId = 83;
   assert.deepEqual(await repository.findAll(), [{ id: 8, nome: "Contexto de outro psicólogo", descricao: "Reservado" }]);
   assert.equal(await repository.findById(7), null);
   assert.equal((await repository.findById(8)).id, 8);
@@ -255,7 +269,7 @@ test("Service com repository em memória mantém CRUD numérico, cópias e atual
 });
 
 test("container real utiliza Prisma no CRUD completo das rotas", async () => {
-  const listResponse = await collection.GET();
+  const listResponse = await collection.GET(request("GET"));
   assert.equal(listResponse.status, 200);
   assert.deepEqual(await listResponse.json(), [{ id: 7, nome: "Contexto atual" }]);
   const createResponse = await collection.POST(request("POST", { nome: " Novo " }));
@@ -277,7 +291,7 @@ test("container real utiliza Prisma no CRUD completo das rotas", async () => {
   assert.ok(calls.some(({ method }) => method === "create"));
 });
 
-test("POST e PUT retornam 400 para corpos inválidos/protegidos antes de consultar banco", async () => {
+test("POST e PUT retornam 400 para corpos inválidos/protegidos antes de consultar os dados do módulo", async () => {
   const invalid = [
     {}, null, [], { nome: " " }, { nome: 1 }, { nome: "N".repeat(201) },
     { nome: "Nome", descricao: null }, { nome: "Nome", id: 83 },
@@ -293,16 +307,18 @@ test("POST e PUT retornam 400 para corpos inválidos/protegidos antes de consult
     const response = method === "POST" ? await collection.POST(malformed) : await item.PUT(malformed, routeContext(7));
     await assertInvalid(response);
   }
-  assert.equal(calls.length, 0);
+  assert.ok(calls.length > 0);
+  assert.ok(calls.every(({ method }) => method === "resolveOwner"));
 });
 
-test("GET/PUT/DELETE rejeitam IDs malformados com 400 antes de consultar banco", async () => {
+test("GET/PUT/DELETE rejeitam IDs malformados com 400 antes de consultar os dados do módulo", async () => {
   for (const id of ["0", "-1", "1.5", "abc", "1e2", "+1", "1 ", "0x10", "2147483648", "999999999999999999999999"]) {
     await assertInvalid(await item.GET(request("GET"), routeContext(id)));
     await assertInvalid(await item.PUT(request("PUT", { nome: "Nome" }), routeContext(id)));
     await assertInvalid(await item.DELETE(request("DELETE"), routeContext(id)));
   }
-  assert.equal(calls.length, 0);
+  assert.ok(calls.length > 0);
+  assert.ok(calls.every(({ method }) => method === "resolveOwner"));
 });
 
 test("GET/PUT/DELETE retornam o mesmo 404 para ID ausente ou de outro proprietário", async () => {
@@ -325,7 +341,7 @@ test("todos os handlers ocultam detalhes de erros inesperados em respostas 500",
     state.errors[method] = new Error("DETALHE_INTERNO_NAO_EXPOR");
   }
   for (const response of [
-    await collection.GET(),
+    await collection.GET(request("GET")),
     await collection.POST(request("POST", { nome: "Novo" })),
     await item.GET(request("GET"), routeContext(7)),
     await item.PUT(request("PUT", { nome: "Novo" }), routeContext(7)),
@@ -342,4 +358,33 @@ test("DELETE preserva RESTRICT e não expõe detalhes da FK", async () => {
   assert.equal(response.status, 500);
   assert.deepEqual(await response.json(), { error: "Erro interno do servidor" });
   assert.equal(state.records.some(({ id }) => id === 7), true);
+});
+
+test("handlers exigem sessão antes de validar payload, filtros e ID", async () => {
+  globalThis.psicoTestSessionPsychologistId = null;
+  for (const response of [
+    await collection.GET(request("GET")),
+    await collection.POST(request("POST", {})),
+    await item.GET(request("GET"), routeContext("inválido")),
+    await item.PUT(request("PUT", {}), routeContext("inválido")),
+    await item.DELETE(request("DELETE"), routeContext("inválido")),
+  ]) {
+    assert.equal(response.status, 401);
+    assert.equal(response.headers.get("cache-control"), "no-store");
+    assert.deepEqual(await response.json(), { error: "Não autenticado" });
+  }
+  assert.equal(calls.length, 0);
+});
+
+test("sessão de proprietário removido não acessa dados do módulo", async () => {
+  state.ownerIds = [83];
+  for (const response of [
+    await collection.GET(request("GET")),
+    await item.GET(request("GET"), routeContext(7)),
+    await item.PUT(request("PUT", { nome: "Alteração" }), routeContext(7)),
+    await item.DELETE(request("DELETE"), routeContext(7)),
+  ]) {
+    assert.equal(response.status, 401);
+  }
+  assert.ok(calls.every(({ method }) => method === "resolveOwner"));
 });

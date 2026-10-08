@@ -1,11 +1,13 @@
 import assert from "node:assert/strict";
 import { after, beforeEach, test } from "node:test";
 import { createJiti } from "jiti";
+import { fileURLToPath } from "node:url";
 
 // Testes isolados: não carregam .env nem abrem conexão com PostgreSQL.
 const previousDatabaseUrl = process.env.DATABASE_URL;
 const previousNodeEnv = process.env.NODE_ENV;
 const previousPrisma = globalThis.psicoPrisma;
+const previousSessionId = globalThis.psicoTestSessionPsychologistId;
 process.env.DATABASE_URL = "postgresql://unused.invalid/isolated_tests";
 process.env.NODE_ENV = "test";
 
@@ -55,10 +57,11 @@ function assertWritable(data, creating) {
 
 globalThis.psicoPrisma = {
   psicologo: {
-    async findMany(options) {
+    async findUnique(options) {
       recordCall("resolveOwner", options);
-      assert.deepEqual(options, { take: 2, select: { id: true } });
-      return state.ownerIds.slice(0, 2).map((id) => ({ id }));
+      assert.deepEqual(options.select, { id: true });
+      assert.equal(options.where.id, globalThis.psicoTestSessionPsychologistId);
+      return state.ownerIds.includes(options.where.id) ? { id: options.where.id } : null;
     },
   },
   contexto: {
@@ -112,7 +115,15 @@ globalThis.psicoPrisma = {
   },
 };
 
-const jiti = createJiti(import.meta.url, { tsconfigPaths: true, fsCache: false });
+const jiti = createJiti(import.meta.url, {
+  // O alias explícito evita carregar cookies() fora de uma requisição Next.js.
+  tsconfigPaths: false,
+  fsCache: false,
+  alias: {
+    "@": fileURLToPath(new URL("../src", import.meta.url)),
+    "@/lib/auth/request-session": fileURLToPath(new URL("./helpers/request-session.mjs", import.meta.url)),
+  },
+});
 ({ Prisma } = await jiti.import("../src/generated/prisma/client.ts"));
 const { taskSchema, createTaskSchema, updateTaskSchema, taskFiltersSchema, taskIdParamSchema } =
   await jiti.import("../src/modules/tarefas/schemas/task.schema.ts");
@@ -134,9 +145,10 @@ const collection = await jiti.import("../src/app/api/tarefas/route.ts");
 const item = await jiti.import("../src/app/api/tarefas/[id]/route.ts");
 
 beforeEach(() => {
+  globalThis.psicoTestSessionPsychologistId = 17;
   calls = [];
   state = {
-    ownerIds: [17],
+    ownerIds: [17, 83],
     nextId: 30,
     contexts: [
       { id: 70, psicologoId: 17 }, { id: 71, psicologoId: 17 }, { id: 80, psicologoId: 83 },
@@ -168,6 +180,8 @@ beforeEach(() => {
 });
 
 after(() => {
+  if (previousSessionId === undefined) delete globalThis.psicoTestSessionPsychologistId;
+  else globalThis.psicoTestSessionPsychologistId = previousSessionId;
   if (previousDatabaseUrl === undefined) delete process.env.DATABASE_URL;
   else process.env.DATABASE_URL = previousDatabaseUrl;
   if (previousNodeEnv === undefined) delete process.env.NODE_ENV;
@@ -340,7 +354,7 @@ test("repository impede consulta, atualização e exclusão de tarefas de outro 
 test("repository resolve proprietário em cada operação sem capturar ID fixo", async () => {
   const repository = new PrismaTaskRepository();
   await repository.findAll();
-  state.ownerIds = [83];
+  globalThis.psicoTestSessionPsychologistId = 83;
   assert.deepEqual((await repository.findAll()).map(({ id }) => id), [8]);
   assert.equal(await repository.findById(7), null);
   assert.equal((await repository.findById(8)).id, 8);
@@ -441,7 +455,7 @@ test("GET das rotas mantém filtros isolados/combinados, resultados vazios e aus
   }
 });
 
-test("POST/PUT rejeitam payloads inválidos, campos protegidos e JSON malformado antes de consultar banco", async () => {
+test("POST/PUT rejeitam payloads inválidos, campos protegidos e JSON malformado antes de consultar os dados do módulo", async () => {
   const invalid = [
     {}, null, [], { titulo: " " }, { titulo: 7 }, { titulo: "T".repeat(256) },
     { descricao: null }, { prazo: null }, { prazo: "0000-01-01" }, { prazo: "2026-02-30" }, { status: "INVALIDO" }, { prioridade: "URGENTE" },
@@ -459,10 +473,11 @@ test("POST/PUT rejeitam payloads inválidos, campos protegidos e JSON malformado
     const malformed = new Request("http://localhost/api/tarefas", { method, body: "{" });
     await assertInvalid(method === "POST" ? await collection.POST(malformed) : await item.PUT(malformed, routeContext(7)));
   }
-  assert.equal(calls.length, 0);
+  assert.ok(calls.length > 0);
+  assert.ok(calls.every(({ method }) => method === "resolveOwner"));
 });
 
-test("IDs e filtros inválidos retornam 400 sem consultar banco", async () => {
+test("IDs e filtros inválidos retornam 400 antes de consultar tarefas", async () => {
   for (const id of ["0", "-1", "1.5", "abc", "1e2", "+1", "1 ", "0x10", "2147483648", "999999999999999999999999"]) {
     await assertInvalid(await item.GET(request(), routeContext(id)));
     await assertInvalid(await item.PUT(request("PUT", { titulo: "Nome" }), routeContext(id)));
@@ -471,7 +486,8 @@ test("IDs e filtros inválidos retornam 400 sem consultar banco", async () => {
   for (const query of ["?status=INVALIDO", "?prioridade=URGENTE", "?prazo=abc", "?prazo=0000-01-01", "?prazo=2026-02-30", "?status=PENDENTE&status=CONCLUIDA", "?prioridade=", "?prazo="]) {
     await assertInvalid(await collection.GET(request("GET", undefined, query)));
   }
-  assert.equal(calls.length, 0);
+  assert.ok(calls.length > 0);
+  assert.ok(calls.every(({ method }) => method === "resolveOwner"));
 });
 
 test("rotas retornam 404 para tarefa ausente/estrangeira e contexto ausente/estrangeiro", async () => {
@@ -512,4 +528,33 @@ test("todos os handlers ocultam detalhes internos em erro inesperado", async () 
     assert.equal(response.status, 500);
     assert.deepEqual(await response.json(), { error: "Erro interno do servidor" });
   }
+});
+
+test("handlers exigem sessão antes de validar payload, filtros e ID", async () => {
+  globalThis.psicoTestSessionPsychologistId = null;
+  for (const response of [
+    await collection.GET(request("GET")),
+    await collection.POST(request("POST", {})),
+    await item.GET(request("GET"), routeContext("inválido")),
+    await item.PUT(request("PUT", {}), routeContext("inválido")),
+    await item.DELETE(request("DELETE"), routeContext("inválido")),
+  ]) {
+    assert.equal(response.status, 401);
+    assert.equal(response.headers.get("cache-control"), "no-store");
+    assert.deepEqual(await response.json(), { error: "Não autenticado" });
+  }
+  assert.equal(calls.length, 0);
+});
+
+test("sessão de proprietário removido não acessa dados do módulo", async () => {
+  state.ownerIds = [83];
+  for (const response of [
+    await collection.GET(request("GET")),
+    await item.GET(request("GET"), routeContext(7)),
+    await item.PUT(request("PUT", { titulo: "Alteração" }), routeContext(7)),
+    await item.DELETE(request("DELETE"), routeContext(7)),
+  ]) {
+    assert.equal(response.status, 401);
+  }
+  assert.ok(calls.every(({ method }) => method === "resolveOwner"));
 });

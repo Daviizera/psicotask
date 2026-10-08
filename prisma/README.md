@@ -59,21 +59,26 @@ O Next.js carrega as variáveis de ambiente da aplicação. O módulo não impor
 `dotenv/config`; o carregamento explícito fica nos scripts Node e na configuração
 da CLI. Os containers de Perfil e Contextos utilizam repositories Prisma.
 
-## Psicólogo atual provisório
+## Psicólogo autenticado
 
 [src/config/development-psychologist.ts](../src/config/development-psychologist.ts)
 centraliza os valores fictícios iniciais do seed. Esses valores podem ser editados
 pela API e não são usados como identidade permanente. Não há ID numérico fixo.
 
 A função `getCurrentPsychologistId`, em
-[src/lib/current-psychologist.ts](../src/lib/current-psychologist.ts), busca
-no máximo dois registros, selecionando somente `id`. Com exatamente um psicólogo,
-retorna seu ID; com zero, orienta executar o seed; com dois ou mais, informa estado
-de desenvolvimento ambíguo. A função recusa uso quando `NODE_ENV=production`.
+[src/lib/current-psychologist.ts](../src/lib/current-psychologist.ts), obtém o ID
+da sessão validada e confirma que esse psicólogo ainda existe no PostgreSQL.
+O helper `src/lib/auth/request-session.ts` lê o cookie da requisição com
+`cookies()` do Next e reutiliza a verificação de assinatura HS256 e expiração.
+Não há dependência da quantidade de psicólogos no banco nem cache global de ID.
 
-Esse ponto de resolução poderá ser substituído pela identidade autenticada no
-futuro. Não representa autenticação e é usado por Perfil e Contextos.
-As APIs não recebem `psicologoId` do cliente.
+Perfil, Contextos, Tarefas, Compromissos e Resumo exigem sessão. O wrapper
+`withAuthentication` retorna 401 antes de validar corpo, IDs ou filtros quando
+a sessão está ausente, inválida, expirada ou aponta para um perfil removido.
+Respostas usam `Cache-Control: no-store`; mutações também verificam a origem.
+Os repositories continuam usando o resolvedor central e seus filtros de
+proprietário. Services não leem cookies ou JWT. As APIs não recebem `psicologoId`
+do cliente; recursos alheios continuam sendo tratados como ausentes.
 
 `PrismaPsychologistRepository` implementa a interface existente, usando o singleton
 Prisma. Consulta e atualização selecionam somente `id`, `nome`, `email` e
@@ -112,8 +117,8 @@ e nenhuma constraint foi alterada. Não existe seed de Contextos.
 
 Na validação HTTP, criar apenas registros temporários, conferir a propriedade e
 os valores diretamente no PostgreSQL e removê-los ao final. O isolamento entre
-proprietários também é coberto por testes com Prisma simulado, sem adicionar um
-segundo psicólogo real.
+proprietários é coberto por testes com Prisma simulado e pela suíte HTTP com
+dois usuários/sessões reais. O segundo psicólogo existe apenas durante o teste.
 
 ## Seed de desenvolvimento
 
@@ -191,8 +196,22 @@ Remove-Item Env:AUTH_HTTP_BASE_URL
 
 Esse teste exige o banco de desenvolvimento com um psicólogo e as outras três
 tabelas vazias, consulta o Prisma real e não altera perfil, hash ou dados. Sem
-`AUTH_HTTP_BASE_URL`, ele é ignorado na suíte comum. Os CRUDs existentes continuam
-sem exigir sessão nesta etapa; o resolvedor de desenvolvimento permanece intacto.
+`AUTH_HTTP_BASE_URL`, ele é ignorado na suíte comum. Os CRUDs existentes exigem
+sessão, e o teste confirma 401 sem cookie e acesso com a sessão autenticada.
+
+Para a regressão com dois usuários, execute as suítes HTTP sequencialmente:
+
+```powershell
+$env:AUTH_HTTP_BASE_URL = "http://127.0.0.1:3112"
+node --test --test-concurrency=1 tests/auth.http.test.mjs tests/ownership.http.test.mjs
+Remove-Item Env:AUTH_HTTP_BASE_URL
+```
+
+A suíte de ownership cria um segundo perfil e dados temporários, testa ambos os
+proprietários e remove somente seus registros de teste em `finally`. Ao terminar,
+confere um psicólogo, zero registros nas outras três tabelas e preservação do
+perfil de desenvolvimento e seu hash. Não executar essas suítes em paralelo,
+pois ambas verificam o mesmo estado inicial do banco.
 
 Para validar a integração, registrar o perfil atual, testar GET/PUT por HTTP e
 conferir as alterações diretamente no PostgreSQL. Executar o seed também após

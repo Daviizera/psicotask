@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import TarefaForm from '@/components/TarefaForm';
-import { api, Tarefa, Contexto, Status, corDe, fmt, msg, STATUS, PRIO } from '@/lib/api';
+import { api, Tarefa, Contexto, Status, corCtx, fmt, msg, STATUS, PRIO } from '@/lib/api';
 
 export default function Detalhe() {
   const { id } = useParams<{ id: string }>();
@@ -20,18 +20,18 @@ export default function Detalhe() {
   const mover = (s: Status) => put({ status: s }).catch((e) => setErr(msg(e)));
   async function excluir() { if (confirm('Excluir esta tarefa?')) { await api(`/api/tarefas/${id}`, 'DELETE'); r.push('/tarefas'); } }
   if (!t) return <p className="err">{err || 'Carregando...'}</p>;
-  const ctxNome = c.find((k) => k.id === t.contextoId)?.nome ?? '—';
+  const k = c.find((x) => x.id === t.contextoId) ?? { id: t.contextoId, nome: '—' };
   return (
     <>
-      <p style={{ fontSize: 13, color: 'var(--t)', marginBottom: 6 }}><Link href="/tarefas">Tarefas</Link> / Detalhes</p>
+      <p style={{ fontSize: 13, color: 'var(--p)', marginBottom: 6, fontWeight: 600 }}><Link href="/tarefas">Tarefas</Link> / Detalhes</p>
       <div className="top"><h1>{t.titulo}</h1></div>
       <div className="wrap">
         <div className="card2">
           {edit ? <TarefaForm ctx={c} init={t} label="Salvar alterações" onSubmit={put} /> : (
             <>
-              <span className="tag" style={{ background: corDe(t.contextoId) }}>{ctxNome}</span>{' '}
-              <span className="tag" style={{ background: t.prioridade === 'ALTA' ? '#c0392b' : 'var(--t)' }}>{PRIO[t.prioridade]}</span>
-              <div className="grid"><div><label>Prazo</label>{fmt(t.prazo) || '—'}</div><div><label>Status</label>{STATUS[t.status]}</div><div><label>Criada em</label>{fmt(t.dataCriacao)}</div></div>
+              <span className="tag" style={{ background: corCtx(k) }}>{k.nome}</span>{' '}
+              <span className={`pr ${t.prioridade}`}>{PRIO[t.prioridade]}</span>
+              <div className="grid"><div><label>PRAZO</label>{fmt(t.prazo) || '—'}</div><div><label>STATUS</label>{STATUS[t.status]}</div><div><label>CRIADA EM</label>{fmt(t.dataCriacao)}</div></div>
               <h3>Descrição</h3><p style={{ lineHeight: 1.6, fontSize: 14 }}>{t.descricao || 'Sem descrição.'}</p>
             </>
           )}

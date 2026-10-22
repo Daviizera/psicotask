@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { api, Perfil as PerfilT, Contexto, corDe, msg } from '@/lib/api';
+import { api, Perfil as PerfilT, Contexto, corCtx, msg } from '@/lib/api';
 
 export default function Perfil() {
   const [p, setP] = useState<PerfilT | null>(null);
@@ -39,7 +39,7 @@ export default function Perfil() {
         </form>
         <aside className="card2" style={{ width: 400 }}>
           <h3>Meus contextos</h3>
-          {c.map((x) => <div className="crow" key={x.id}><i className="dot" style={{ background: corDe(x.id) }} /><span>{x.nome}</span><button onClick={() => renomear(x)}>Renomear</button><button onClick={() => excluir(x)}>Excluir</button></div>)}
+          {c.map((x) => <div className="crow" key={x.id}><i className="dot" style={{ background: corCtx(x) }} /><span>{x.nome}</span><button onClick={() => renomear(x)}>Renomear</button><button onClick={() => excluir(x)}>Excluir</button></div>)}
           {errC && <p className="err" style={{ marginTop: 10 }}>{errC}</p>}
           <form onSubmit={criar} style={{ display: 'flex', gap: 8, marginTop: 16 }}><input placeholder="Novo contexto" value={novo} onChange={(e) => setNovo(e.target.value)} maxLength={200} required /><button className="btn">Criar</button></form>
         </aside>

@@ -21,6 +21,12 @@ export const msg = (e: unknown) => (e instanceof ApiError ? e.details?.map((d) =
 // A API de Contexto não tem cor: derivamos uma cor estável a partir do id.
 const CORES = ['#2e9e5b', '#8b5cf6', '#e0a800', '#3b82f6', '#e11d48', '#0891b2'];
 export const corDe = (id: number) => CORES[id % CORES.length];
+// Cores por tipo de contexto, conforme o DESIGN.md; nomes desconhecidos usam a cor derivada do id.
+const POR_NOME: [string, string][] = [['atend', '#059669'], ['estud', '#0284C7'], ['supervis', '#D97706'], ['admin', '#6366F1']];
+export const corCtx = (c: { id: number; nome: string }) => {
+  const n = c.nome.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  return POR_NOME.find(([k]) => n.includes(k))?.[1] ?? corDe(c.id);
+};
 export const fmt = (d?: string) => (d ? d.split('-').reverse().join('/') : '');
 export const STATUS: Record<Status, string> = { PENDENTE: 'A Fazer', EM_ANDAMENTO: 'Em Andamento', CONCLUIDA: 'Concluídas' };
 export const PRIO: Record<Prioridade, string> = { BAIXA: 'Baixa', MEDIA: 'Média', ALTA: 'Alta' };

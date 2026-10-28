@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 
-// Destino após o login. A homepage autenticada ainda não existe; "/" é provisório.
+// Destino após o login: homepage autenticada (Resumo da rotina).
 const DESTINO_APOS_LOGIN = "/";
 
 type Campo = "email" | "senha";

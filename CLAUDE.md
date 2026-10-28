@@ -90,6 +90,17 @@ O objetivo é construir uma nova interface mantendo o backend (já implementado,
 - Se uma solicitação de frontend parecer exigir mudança no backend, parar e explicar a necessidade antes de modificar qualquer arquivo do backend.
 - Na dúvida entre alterar a interface ou modificar a API, preservar a API e solicitar orientação.
 
+### Referências visuais (`docs/frontend-reference/`)
+
+- `docs/frontend-reference/README.md` define como as referências visuais devem ser interpretadas (hierarquia de fontes, escopo e regra de adaptação). Lê-lo antes de usar os demais arquivos da pasta.
+- `docs/frontend-reference/DESIGN.md` é a principal referência para tokens (cores, tipografia, espaçamentos, raios, elevação), identidade visual e padrões de interface.
+- `docs/frontend-reference/reference.html` é uma referência concreta de composição visual e interação (layout, sidebar, header, cards, Kanban, filtros, drawers, modais, estados de hover/foco, responsividade).
+- `DESIGN.md` e `reference.html` não definem requisitos funcionais. O dossiê, os requisitos atuais e `docs/frontend-handoff.md` têm precedência sobre qualquer conteúdo funcional encontrado neles.
+- Pacientes, prontuários, CID, registros de sessão, anamnese, documentos psicológicos e demais funcionalidades clínicas presentes nas referências não fazem parte do escopo atual. Nenhuma funcionalidade fora do escopo deve ser criada apenas porque aparece no HTML ou no documento de design.
+- Adaptar a referência ao domínio real do PsicoTask (perfil profissional, contextos, tarefas, compromissos, resumo): preservar o padrão visual e substituir o conteúdo demonstrativo.
+- Em conflito entre aparência e funcionalidade, preservar o requisito e adaptar a aparência.
+- Se um elemento visual depender de uma funcionalidade inexistente na API ou no escopo, interromper essa parte e solicitar orientação, em vez de alterar backend ou escopo.
+
 ### Implementação de telas
 
 - Trabalhar em uma tela ou etapa claramente delimitada por vez.

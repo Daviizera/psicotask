@@ -1,0 +1,1337 @@
+<!DOCTYPE html>
+
+<html lang="pt-BR"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<meta content="web_dashboard" name="shell-type"/>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            "surface-bright": "#f8f9ff",
+            "background": "#f8f9ff",
+            "on-primary-fixed": "#001c37",
+            "inverse-on-surface": "#eaf1ff",
+            "surface-container-high": "#dce9ff",
+            "surface-container-lowest": "#ffffff",
+            "on-tertiary-container": "#82d8ce",
+            "error": "#ba1a1a",
+            "on-primary-container": "#a5cbff",
+            "on-surface-variant": "#414750",
+            "surface": "#f8f9ff",
+            "primary-fixed-dim": "#a1c9ff",
+            "secondary-fixed": "#ffdeaa",
+            "primary-fixed": "#d2e4ff",
+            "error-container": "#ffdad6",
+            "outline-variant": "#c1c7d2",
+            "tertiary-container": "#005f58",
+            "inverse-surface": "#233144",
+            "on-secondary-container": "#755100",
+            "secondary-container": "#fdc662",
+            "on-secondary-fixed-variant": "#5f4100",
+            "tertiary": "#004540",
+            "on-tertiary-fixed": "#00201d",
+            "on-surface": "#0d1c2e",
+            "surface-dim": "#ccdbf3",
+            "surface-container-highest": "#d5e3fc",
+            "outline": "#727781",
+            "on-tertiary": "#ffffff",
+            "secondary-fixed-dim": "#f4be5b",
+            "secondary": "#7d5700",
+            "surface-variant": "#d5e3fc",
+            "on-secondary": "#ffffff",
+            "surface-container": "#e6eeff",
+            "on-secondary-fixed": "#271900",
+            "surface-tint": "#1961a1",
+            "on-tertiary-fixed-variant": "#00504a",
+            "on-primary": "#ffffff",
+            "on-error": "#ffffff",
+            "inverse-primary": "#a1c9ff",
+            "on-primary-fixed-variant": "#004880",
+            "on-error-container": "#93000a",
+            "surface-container-low": "#eff4ff",
+            "primary": "#003e6f",
+            "primary-container": "#005696",
+            "on-background": "#0d1c2e",
+            "tertiary-fixed": "#9cf2e8",
+            "tertiary-fixed-dim": "#80d5cb"
+          },
+          borderRadius: {
+            "DEFAULT": "0.25rem",
+            "lg": "0.5rem",
+            "xl": "0.75rem",
+            "full": "9999px"
+          },
+          spacing: {
+            "margin": "1rem",
+            "space-sm": "0.5rem",
+            "space-lg": "1.5rem",
+            "space-xl": "2.25rem",
+            "space-md": "1rem",
+            "gutter": "1.25rem",
+            "margin-desktop": "2rem",
+            "space-2xl": "3rem",
+            "gutter-desktop": "1.5rem",
+            "space-xs": "0.25rem"
+          },
+          fontFamily: {
+            body: ["Plus Jakarta Sans", "sans-serif"]
+          }
+        }
+      }
+    };
+  </script>
+<style>
+    @layer base {
+      html, body {
+        margin: 0;
+        padding: 0;
+        font-family: 'Plus Jakarta Sans', sans-serif;
+      }
+      body {
+        overscroll-behavior: none;
+      }
+    }
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 4px;
+    }
+    .task-card {
+      transition: transform 0.18s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.18s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.18s ease;
+    }
+    .task-card:hover {
+      transform: translateY(-2px);
+    }
+    .task-card.dragging {
+      opacity: 0.45;
+      transform: scale(0.98);
+      cursor: grabbing;
+    }
+    .kanban-col.drag-over {
+      background-color: rgba(220, 233, 255, 0.55);
+      border-color: #005696;
+    }
+    .drop-hint {
+      transition: all 0.2s ease;
+    }
+  </style>
+</head>
+<body class="bg-background font-body text-on-surface antialiased select-none selection:bg-primary-container selection:text-on-primary">
+<!-- PERSISTENT SIDEBAR -->
+<aside class="fixed left-0 top-0 h-full w-64 bg-primary text-on-primary z-50 flex flex-col justify-between shadow-[0_2px_12px_rgba(0,30,60,0.08)] border-r border-primary/20">
+<div class="flex flex-col flex-1 overflow-y-auto px-4 py-5">
+<!-- App Brand & Identity -->
+<div class="flex items-center gap-3 mb-6 px-1.5">
+<div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-primary-container to-primary-fixed flex items-center justify-center text-on-primary shadow-sm ring-1 ring-white/10">
+<span class="material-symbols-outlined text-[22px]">psychology</span>
+</div>
+<div class="flex flex-col">
+<div class="flex items-center gap-1.5">
+<span class="text-base font-bold text-on-primary tracking-tight leading-none">PsicoTask</span>
+<span class="px-1.5 py-0.2 rounded bg-tertiary-fixed text-on-tertiary-fixed text-[10px] font-bold tracking-wider uppercase">Pro</span>
+</div>
+<span class="text-[11px] font-medium text-primary-fixed-dim uppercase tracking-wider mt-1">Clínica &amp; Rotina</span>
+</div>
+</div>
+<!-- Main Navigation Menu -->
+<div class="mb-6">
+<div class="px-2 mb-2 text-[11px] font-semibold text-primary-fixed-dim uppercase tracking-wider">Menu Principal</div>
+<nav class="flex flex-col gap-1">
+<a class="flex items-center justify-between px-3 py-2.5 rounded-xl bg-primary-container text-on-primary font-semibold shadow-sm transition-all group" href="#">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-[20px] text-tertiary-fixed">check_box</span>
+<span class="text-sm">Minhas Tarefas</span>
+</div>
+<span class="text-xs bg-white/20 text-on-primary px-1.5 py-0.5 rounded-full font-bold">5</span>
+</a>
+<a class="flex items-center justify-between px-3 py-2.5 rounded-xl text-primary-fixed hover:bg-primary-container/60 hover:text-on-primary transition-all group" href="#">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-[20px] opacity-80 group-hover:opacity-100">calendar_today</span>
+<span class="text-sm font-medium">Agendas</span>
+</div>
+</a>
+<a class="flex items-center justify-between px-3 py-2.5 rounded-xl text-primary-fixed hover:bg-primary-container/60 hover:text-on-primary transition-all group" href="#">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-[20px] opacity-80 group-hover:opacity-100">folder_shared</span>
+<span class="text-sm font-medium">Prontuários</span>
+</div>
+<span class="text-[10px] bg-tertiary text-tertiary-fixed px-1.5 py-0.5 rounded font-semibold">CFP</span>
+</a>
+<a class="flex items-center justify-between px-3 py-2.5 rounded-xl text-primary-fixed hover:bg-primary-container/60 hover:text-on-primary transition-all group" href="#">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-[20px] opacity-80 group-hover:opacity-100">account_circle</span>
+<span class="text-sm font-medium">Perfil Clínico</span>
+</div>
+</a>
+</nav>
+</div>
+<!-- Professional Contexts Section -->
+<div class="flex-1">
+<div class="flex items-center justify-between px-2 mb-2.5">
+<span class="text-[11px] font-semibold text-primary-fixed-dim uppercase tracking-wider">Contextos</span>
+<button class="text-primary-fixed hover:text-on-primary p-0.5 rounded hover:bg-primary-container/40 transition-colors" title="Adicionar Contexto" type="button">
+<span class="material-symbols-outlined text-[16px]">add</span>
+</button>
+</div>
+<div class="flex flex-col gap-1">
+<button class="w-full flex items-center justify-between px-3 py-2 rounded-xl text-primary-fixed hover:bg-primary-container/50 hover:text-on-primary transition-all group text-left" onclick="filterByContext('Atendimento')">
+<div class="flex items-center gap-2.5">
+<span class="w-2.5 h-2.5 rounded-full bg-tertiary-fixed ring-2 ring-tertiary"></span>
+<span class="text-sm">Atendimento</span>
+</div>
+<span class="text-xs bg-white/10 px-2 py-0.5 rounded-full font-medium group-hover:bg-white/20">2</span>
+</button>
+<button class="w-full flex items-center justify-between px-3 py-2 rounded-xl text-primary-fixed hover:bg-primary-container/50 hover:text-on-primary transition-all group text-left" onclick="filterByContext('Estudos')">
+<div class="flex items-center gap-2.5">
+<span class="w-2.5 h-2.5 rounded-full bg-primary-fixed-dim ring-2 ring-primary-container"></span>
+<span class="text-sm">Estudos</span>
+</div>
+<span class="text-xs bg-white/10 px-2 py-0.5 rounded-full font-medium group-hover:bg-white/20">2</span>
+</button>
+<button class="w-full flex items-center justify-between px-3 py-2 rounded-xl text-primary-fixed hover:bg-primary-container/50 hover:text-on-primary transition-all group text-left" onclick="filterByContext('Supervisão')">
+<div class="flex items-center gap-2.5">
+<span class="w-2.5 h-2.5 rounded-full bg-secondary-container ring-2 ring-secondary"></span>
+<span class="text-sm">Supervisão</span>
+</div>
+<span class="text-xs bg-white/10 px-2 py-0.5 rounded-full font-medium group-hover:bg-white/20">1</span>
+</button>
+<button class="w-full flex items-center justify-between px-3 py-2 rounded-xl text-primary-fixed hover:bg-primary-container/50 hover:text-on-primary transition-all group text-left opacity-75 hover:opacity-100" onclick="filterByContext('Administração')">
+<div class="flex items-center gap-2.5">
+<span class="w-2.5 h-2.5 rounded-full bg-surface-variant"></span>
+<span class="text-sm">Administração</span>
+</div>
+<span class="text-xs bg-white/10 px-2 py-0.5 rounded-full font-medium">0</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Active Clinician Profile Bar -->
+<div class="p-3 bg-on-primary-fixed/40 m-3 rounded-2xl border border-white/5 backdrop-blur-sm">
+<div class="flex items-center justify-between gap-3">
+<div class="flex items-center gap-2.5 min-w-0">
+<div class="relative flex-shrink-0">
+<img alt="Dra. Gabriela Psicóloga" class="w-9 h-9 rounded-full object-cover ring-2 ring-tertiary-fixed" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBdVzDFNlFVhHVLiCD0tQ7-ezO70I2A0WbKiKQ4PJF6Ss9qRhUT3QBSCIxnBCNk6SrrsNkFCnEjWnLyHgH7mMKQcKZJeeayLRFNaKBA1cBT-MM7U14yq1vurVTRqYRN-eJBHDLH85dGRyyT4Tov_XGDVa6S2tOrI-WVYbNYJnRs35yJoOYJBWGD6DPNaQU61-6KFK4CI2Z1eVYTuZn2z-g_XWYwF2AoK730eDg1iCghA2iAx-shgw"/>
+<span class="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-400 ring-2 ring-primary"></span>
+</div>
+<div class="min-w-0 flex-1">
+<p class="text-xs font-semibold text-on-primary truncate">Dra. Gabriela Silva</p>
+<p class="text-[11px] text-primary-fixed-dim truncate">CRP 06/148290</p>
+</div>
+</div>
+<button class="text-primary-fixed hover:text-on-primary p-1 rounded-lg hover:bg-white/10 transition-colors" title="Encerrar sessão" type="button">
+<span class="material-symbols-outlined text-[18px]">logout</span>
+</button>
+</div>
+</div>
+</aside>
+<!-- WORKSPACE WRAPPER (Offset for Sidebar) -->
+<div class="pl-64 flex flex-col min-h-screen">
+<!-- TOP HEADER -->
+<header class="fixed top-0 left-64 right-0 h-16 bg-surface-bright/90 backdrop-blur-xl border-b border-outline-variant/30 shadow-[0_1px_6px_rgba(0,0,0,0.02)] z-40 flex items-center justify-between px-6">
+<div class="flex items-center gap-4 flex-1 max-w-xl">
+<nav aria-label="Breadcrumb" class="hidden sm:flex items-center gap-1.5 text-xs text-on-surface-variant font-medium">
+<span class="hover:text-primary transition-colors cursor-pointer">Clínica</span>
+<span class="material-symbols-outlined text-[14px] text-outline">chevron_right</span>
+<span class="hover:text-primary transition-colors cursor-pointer">Rotina Diária</span>
+<span class="material-symbols-outlined text-[14px] text-outline">chevron_right</span>
+<span class="text-on-surface font-semibold bg-surface-container px-2 py-0.5 rounded-md">Minhas Tarefas</span>
+</nav>
+<!-- Global Search Bar with Hotkey -->
+<div class="relative flex-1 max-w-sm ml-2">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[18px] text-outline pointer-events-none">search</span>
+<input class="w-full pl-9 pr-14 py-1.5 bg-surface-container-low/80 hover:bg-surface-container-low border border-outline-variant/40 rounded-xl text-xs text-on-surface placeholder:text-outline focus:outline-none focus:bg-surface-container-lowest focus:ring-2 focus:ring-primary-container focus:border-transparent transition-all" id="globalSearch" placeholder="Buscar tarefas, prontuários, notas..." type="text"/>
+<kbd class="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-semibold bg-surface-container text-on-surface-variant px-1.5 py-0.5 rounded border border-outline-variant/40 shadow-xs">⌘K</kbd>
+</div>
+</div>
+<!-- Header CTAs & Status Tools -->
+<div class="flex items-center gap-3">
+<button class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-primary-container text-on-primary hover:bg-primary font-semibold text-xs shadow-sm shadow-primary/20 hover:shadow-md transition-all active:scale-[0.98]" id="topNewTaskBtn" type="button">
+<span class="material-symbols-outlined text-[18px]">add_task</span>
+<span class="font-medium">Nova Tarefa</span>
+</button>
+<div class="h-6 w-px bg-outline-variant/40 mx-1 hidden sm:block"></div>
+<button aria-label="Notificações" class="relative p-2 rounded-xl text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors" title="Alertas de Prazos e Lembretes" type="button">
+<span class="material-symbols-outlined text-[20px]">notifications</span>
+<span class="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-error ring-2 ring-surface-bright"></span>
+</button>
+<button aria-label="Ajuda e Atalhos" class="p-2 rounded-xl text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors hidden sm:flex" onclick="toggleShortcutsModal()" title="Guia de Atalhos (Shift + ?)" type="button">
+<span class="material-symbols-outlined text-[20px]">keyboard</span>
+</button>
+<div class="flex items-center gap-2 pl-1 border-l border-outline-variant/30 ml-1">
+<div class="relative cursor-pointer" onclick="openDrawerWithCard(1)">
+<img alt="Perfil" class="w-8 h-8 rounded-full object-cover ring-2 ring-primary/20 hover:ring-primary transition-all" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBdVzDFNlFVhHVLiCD0tQ7-ezO70I2A0WbKiKQ4PJF6Ss9qRhUT3QBSCIxnBCNk6SrrsNkFCnEjWnLyHgH7mMKQcKZJeeayLRFNaKBA1cBT-MM7U14yq1vurVTRqYRN-eJBHDLH85dGRyyT4Tov_XGDVa6S2tOrI-WVYbNYJnRs35yJoOYJBWGD6DPNaQU61-6KFK4CI2Z1eVYTuZn2z-g_XWYwF2AoK730eDg1iCghA2iAx-shgw"/>
+</div>
+</div>
+</div>
+</header>
+<!-- MAIN CONTENT AREA -->
+<main class="flex-1 pt-20 px-6 pb-20 w-full max-w-[1720px] mx-auto">
+<!-- OPERATIONAL HUD / CLINICAL METRICS BAR -->
+<section class="mb-5">
+<div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-1">
+<div>
+<div class="flex items-center gap-2 mb-1">
+<span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-primary-fixed/60 text-primary text-[11px] font-bold tracking-wider uppercase">
+<span class="w-1.5 h-1.5 rounded-full bg-primary animate-pulse"></span>
+                Operate Mode
+              </span>
+<span class="text-xs text-on-surface-variant">Ambiente Seguro CFP • Criptografia AES-256</span>
+</div>
+<h1 class="text-2xl font-bold tracking-tight text-on-surface flex items-center gap-2">
+              Minhas Tarefas
+              <span class="text-xs font-semibold px-2 py-0.5 rounded-md bg-surface-container text-on-surface-variant font-normal">Quadro Operacional</span>
+</h1>
+</div>
+<!-- Calm High-Precision Metric Chips -->
+<div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+<!-- Chip 1: Total Ativas -->
+<div class="bg-surface-container-lowest border border-outline-variant/30 rounded-2xl px-3.5 py-2.5 flex items-center gap-3 shadow-[0_1px_4px_rgba(0,0,0,0.02)]">
+<div class="w-9 h-9 rounded-xl bg-primary-fixed/50 flex items-center justify-center text-primary flex-shrink-0">
+<span class="material-symbols-outlined text-[20px]">assignment</span>
+</div>
+<div>
+<div class="flex items-baseline gap-1">
+<span class="text-lg font-bold text-on-surface leading-none" id="metricTotalActive">5</span>
+<span class="text-[11px] text-on-surface-variant">demandas</span>
+</div>
+<span class="text-[11px] font-medium text-on-surface-variant">Ativas no Fluxo</span>
+</div>
+</div>
+<!-- Chip 2: Urgentes / Hoje -->
+<div class="bg-surface-container-lowest border border-outline-variant/30 rounded-2xl px-3.5 py-2.5 flex items-center gap-3 shadow-[0_1px_4px_rgba(0,0,0,0.02)]">
+<div class="w-9 h-9 rounded-xl bg-error-container/60 flex items-center justify-center text-error flex-shrink-0">
+<span class="material-symbols-outlined text-[20px]">warning</span>
+</div>
+<div>
+<div class="flex items-baseline gap-1">
+<span class="text-lg font-bold text-error leading-none">2</span>
+<span class="text-[11px] text-error font-medium">hoje</span>
+</div>
+<span class="text-[11px] font-medium text-on-surface-variant">Atenção Crítica</span>
+</div>
+</div>
+<!-- Chip 3: Supervisão -->
+<div class="bg-surface-container-lowest border border-outline-variant/30 rounded-2xl px-3.5 py-2.5 flex items-center gap-3 shadow-[0_1px_4px_rgba(0,0,0,0.02)]">
+<div class="w-9 h-9 rounded-xl bg-secondary-fixed/70 flex items-center justify-center text-secondary flex-shrink-0">
+<span class="material-symbols-outlined text-[20px]">psychology_alt</span>
+</div>
+<div>
+<div class="flex items-baseline gap-1">
+<span class="text-lg font-bold text-on-surface leading-none">1</span>
+<span class="text-[11px] text-secondary font-semibold">10/10</span>
+</div>
+<span class="text-[11px] font-medium text-on-surface-variant">Supervisão Clínica</span>
+</div>
+</div>
+<!-- Chip 4: Taxa de Conclusão com SVG Donut -->
+<div class="bg-surface-container-lowest border border-outline-variant/30 rounded-2xl px-3.5 py-2.5 flex items-center gap-3 shadow-[0_1px_4px_rgba(0,0,0,0.02)]">
+<div class="relative w-9 h-9 flex items-center justify-center flex-shrink-0">
+<svg class="w-9 h-9 transform -rotate-90" viewbox="0 0 36 36">
+<path class="text-surface-container-high" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" stroke-width="3.5"></path>
+<path class="text-tertiary stroke-current" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke-dasharray="80, 100" stroke-linecap="round" stroke-width="3.5"></path>
+</svg>
+<span class="absolute text-[10px] font-bold text-tertiary">80%</span>
+</div>
+<div>
+<div class="flex items-baseline gap-1">
+<span class="text-xs font-bold text-tertiary leading-none">Meta Semanal</span>
+</div>
+<span class="text-[11px] font-medium text-on-surface-variant">4 de 5 em dia</span>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- SUB-HEADER FILTER & CONTROL TOOLBAR -->
+<section class="bg-surface-container-lowest border border-outline-variant/30 rounded-2xl p-3.5 mb-6 shadow-[0_1px_6px_rgba(0,0,0,0.02)]">
+<div class="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3">
+<!-- Search in board -->
+<div class="relative flex-1 max-w-md">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline text-[18px]">filter_list</span>
+<input class="w-full pl-9 pr-8 py-2 bg-surface-container-low/70 border border-transparent rounded-xl text-xs text-on-surface placeholder:text-outline focus:outline-none focus:border-primary-container focus:bg-surface-container-lowest focus:ring-2 focus:ring-primary-container/20 transition-all" id="boardFilterInput" oninput="filterBoardCards(this.value)" placeholder="Filtrar por título, paciente, CID ou nota..." type="text"/>
+<button class="absolute right-2.5 top-1/2 -translate-y-1/2 text-outline hover:text-on-surface hidden" id="clearSearchBtn" onclick="clearBoardFilter()">
+<span class="material-symbols-outlined text-[16px]">close</span>
+</button>
+</div>
+<!-- View Switcher & Action Tools -->
+<div class="flex items-center gap-2 flex-wrap justify-between lg:justify-end">
+<!-- View Selector Segmented Control -->
+<div class="flex items-center bg-surface-container-low p-1 rounded-xl border border-outline-variant/30">
+<button class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface-container-lowest text-on-surface font-semibold text-xs shadow-xs transition-all" id="btnViewKanban">
+<span class="material-symbols-outlined text-[16px] text-primary">view_kanban</span>
+<span>Quadro</span>
+</button>
+<button class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-on-surface-variant hover:text-on-surface text-xs font-medium transition-all" id="btnViewList" onclick="showToast('Modo Lista detalhada em breve')">
+<span class="material-symbols-outlined text-[16px]">format_list_bulleted</span>
+<span>Lista</span>
+</button>
+<button class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-on-surface-variant hover:text-on-surface text-xs font-medium transition-all" id="btnViewCalendar" onclick="showToast('Modo Calendário semanal em breve')">
+<span class="material-symbols-outlined text-[16px]">calendar_month</span>
+<span>Semana</span>
+</button>
+</div>
+<!-- Group & Sort Control -->
+<div class="relative">
+<select class="px-3 py-1.5 bg-surface-container-low border border-outline-variant/30 rounded-xl text-xs font-medium text-on-surface focus:outline-none focus:ring-2 focus:ring-primary-container cursor-pointer pr-7">
+<option>Ordenar: Prazo Crítico</option>
+<option>Ordenar: Prioridade (Alta → Baixa)</option>
+<option>Ordenar: Criados recentemente</option>
+</select>
+</div>
+<!-- Quick Primary Action -->
+<button class="flex items-center gap-1.5 bg-primary-container hover:bg-primary text-on-primary font-semibold text-xs px-3.5 py-2 rounded-xl shadow-xs transition-all" onclick="openNewTaskDrawer()">
+<span class="material-symbols-outlined text-[18px]">add</span>
+<span>Demanda Clínica</span>
+</button>
+</div>
+</div>
+<!-- Secondary Filter Pills Row: Contextos & Prioridades -->
+<div class="flex items-center justify-between gap-3 mt-3 pt-3 border-t border-outline-variant/20 flex-wrap">
+<!-- Context Filter Chips -->
+<div class="flex items-center gap-1.5 flex-wrap" id="contextPillsContainer">
+<span class="text-[11px] font-semibold text-on-surface-variant uppercase tracking-wider mr-1">Contexto:</span>
+<button class="filter-pill active px-3 py-1 rounded-full text-xs font-semibold bg-primary text-on-primary transition-all shadow-xs" data-context="Todos" onclick="filterByContext('Todos')">
+              Todos <span class="ml-1 opacity-80">(5)</span>
+</button>
+<button class="filter-pill flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-surface-container-low text-on-surface-variant hover:bg-surface-container hover:text-on-surface border border-outline-variant/30 transition-all" data-context="Atendimento" onclick="filterByContext('Atendimento')">
+<span class="w-2 h-2 rounded-full bg-tertiary"></span>
+<span>Atendimento</span>
+<span class="text-[10px] opacity-70">(2)</span>
+</button>
+<button class="filter-pill flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-surface-container-low text-on-surface-variant hover:bg-surface-container hover:text-on-surface border border-outline-variant/30 transition-all" data-context="Estudos" onclick="filterByContext('Estudos')">
+<span class="w-2 h-2 rounded-full bg-primary-container"></span>
+<span>Estudos</span>
+<span class="text-[10px] opacity-70">(2)</span>
+</button>
+<button class="filter-pill flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-surface-container-low text-on-surface-variant hover:bg-surface-container hover:text-on-surface border border-outline-variant/30 transition-all" data-context="Supervisão" onclick="filterByContext('Supervisão')">
+<span class="w-2 h-2 rounded-full bg-secondary"></span>
+<span>Supervisão</span>
+<span class="text-[10px] opacity-70">(1)</span>
+</button>
+<button class="filter-pill flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-surface-container-low text-on-surface-variant hover:bg-surface-container hover:text-on-surface border border-outline-variant/30 transition-all opacity-60" data-context="Administração" onclick="filterByContext('Administração')">
+<span class="w-2 h-2 rounded-full bg-surface-variant"></span>
+<span>Administração</span>
+<span class="text-[10px] opacity-70">(0)</span>
+</button>
+</div>
+<!-- Priority Quick Toggles -->
+<div class="flex items-center gap-1.5 text-xs text-on-surface-variant">
+<span class="text-[11px] font-semibold text-on-surface-variant uppercase tracking-wider mr-1">Prioridade:</span>
+<button class="px-2 py-0.5 rounded-lg border border-outline-variant/30 hover:bg-surface-container text-on-surface text-[11px] font-medium" onclick="filterByPriority('all')">Todas</button>
+<button class="px-2 py-0.5 rounded-lg bg-error-container/60 hover:bg-error-container text-on-error-container text-[11px] font-semibold transition-colors" onclick="filterByPriority('Alta')">Alta (2)</button>
+<button class="px-2 py-0.5 rounded-lg bg-secondary-fixed/60 hover:bg-secondary-fixed text-on-secondary-fixed text-[11px] font-semibold transition-colors" onclick="filterByPriority('Média')">Média (1)</button>
+<button class="px-2 py-0.5 rounded-lg bg-surface-container-high hover:bg-surface-dim text-on-surface-variant text-[11px] font-semibold transition-colors" onclick="filterByPriority('Baixa')">Baixa (1)</button>
+</div>
+</div>
+</section>
+<!-- 3-COLUMN KANBAN BOARD (Interactive Native Drag and Drop) -->
+<section class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5 items-start">
+<!-- COLUMN 1: A FAZER -->
+<div class="kanban-col flex flex-col bg-surface-container-low/60 rounded-2xl p-3.5 border border-outline-variant/30 shadow-[0_1px_4px_rgba(0,0,0,0.02)] min-h-[580px] transition-colors" data-status="todo" id="col-todo" ondragleave="handleDragLeave(event)" ondragover="handleDragOver(event)" ondrop="handleDrop(event, 'todo')">
+<!-- Column Header -->
+<div class="flex items-center justify-between pb-3 mb-3 border-b border-outline-variant/30">
+<div class="flex items-center gap-2">
+<span class="w-3 h-3 rounded-full bg-primary flex-shrink-0 ring-4 ring-primary/10"></span>
+<h2 class="text-sm font-bold text-on-surface">A Fazer</h2>
+<span class="bg-primary/15 text-primary text-xs font-bold px-2 py-0.5 rounded-full" id="count-todo">2</span>
+</div>
+<div class="flex items-center gap-1">
+<button class="text-on-surface-variant hover:text-primary hover:bg-surface-container-lowest p-1 rounded-lg transition-colors" onclick="openNewTaskDrawer('todo')" title="Adicionar à lista A Fazer" type="button">
+<span class="material-symbols-outlined text-[18px]">add</span>
+</button>
+<button class="text-on-surface-variant hover:text-on-surface hover:bg-surface-container-lowest p-1 rounded-lg transition-colors" title="Opções da Coluna" type="button">
+<span class="material-symbols-outlined text-[18px]">more_vert</span>
+</button>
+</div>
+</div>
+<!-- Tasks Stack -->
+<div class="cards-container flex flex-col gap-3 min-h-[380px]" id="container-todo">
+<!-- CARD 1: Relatório para supervisão -->
+<article class="task-card group relative bg-surface-container-lowest rounded-xl p-3.5 border border-outline-variant/40 shadow-xs hover:border-primary-container/60 hover:shadow-md cursor-grab active:cursor-grabbing" data-card-id="1" data-context="Supervisão" data-priority="Alta" draggable="true" id="card-1" onclick="openDrawerWithCard(1)" ondragstart="handleDragStart(event)">
+<!-- Card Meta Badges -->
+<div class="flex items-start justify-between gap-2 mb-2">
+<span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-secondary-fixed text-on-secondary-fixed text-[11px] font-semibold border border-secondary/20">
+<span class="w-2 h-2 rounded-full bg-secondary"></span>
+                  Supervisão
+                </span>
+<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-error-container text-on-error-container text-[11px] font-bold">
+<span class="w-1.5 h-1.5 rounded-full bg-error"></span>
+                  Alta
+                </span>
+</div>
+<!-- Title & Excerpt -->
+<h3 class="text-sm font-semibold text-on-surface group-hover:text-primary transition-colors leading-snug">
+                Relatório para supervisão
+              </h3>
+<p class="text-xs text-on-surface-variant mt-1.5 line-clamp-2 leading-relaxed">
+                Resumir os casos acompanhados da semana para a reunião com foco no manejo de ansiedade generalizada.
+              </p>
+<!-- Checklist Micro-Progress -->
+<div class="mt-3 flex items-center justify-between text-xs text-on-surface-variant bg-surface-container-low/50 px-2.5 py-1.5 rounded-lg border border-outline-variant/20">
+<div class="flex items-center gap-1.5 font-medium">
+<span class="material-symbols-outlined text-[15px] text-outline">checklist</span>
+<span>0 de 4 itens preenchidos</span>
+</div>
+<span class="text-[11px] font-bold text-on-surface-variant">0%</span>
+</div>
+<!-- Deadlines & Reminder Pill (Fidelity to Wireframe) -->
+<div class="mt-2.5 pt-2 border-t border-outline-variant/20 flex items-center justify-between text-xs text-on-surface-variant">
+<div class="flex items-center gap-1 text-error font-semibold" title="Prazo fatal">
+<span class="material-symbols-outlined text-[15px]">calendar_month</span>
+<span>10/10/2026</span>
+<span class="text-[10px] font-normal px-1 rounded bg-error-container/60 ml-0.5">(3 dias)</span>
+</div>
+<div class="flex items-center gap-1 text-[11px] text-on-surface-variant bg-surface-container-high/40 px-1.5 py-0.5 rounded" title="Lembrete programado">
+<span class="material-symbols-outlined text-[14px]">notifications_active</span>
+<span>1 dia antes</span>
+</div>
+</div>
+<!-- Card Clinician / Supervisor Footer -->
+<div class="mt-3 pt-2 border-t border-outline-variant/20 flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="w-6 h-6 rounded-full bg-secondary text-on-secondary text-[10px] font-bold flex items-center justify-center">
+                    MS
+                  </span>
+<span class="text-xs font-medium text-on-surface-variant">Dra. Marta (Supervisora)</span>
+</div>
+<div class="flex items-center gap-1 text-outline group-hover:text-primary">
+<span class="material-symbols-outlined text-[18px]">drag_indicator</span>
+</div>
+</div>
+</article>
+<!-- CARD 2: Ler artigo do TCC / Artigo Científico -->
+<article class="task-card group relative bg-surface-container-lowest rounded-xl p-3.5 border border-outline-variant/40 shadow-xs hover:border-primary-container/60 hover:shadow-md cursor-grab active:cursor-grabbing" data-card-id="2" data-context="Estudos" data-priority="Média" draggable="true" id="card-2" onclick="openDrawerWithCard(2)" ondragstart="handleDragStart(event)">
+<div class="flex items-start justify-between gap-2 mb-2">
+<span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-primary-fixed text-on-primary-fixed text-[11px] font-semibold border border-primary/20">
+<span class="w-2 h-2 rounded-full bg-primary"></span>
+                  Estudos
+                </span>
+<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-secondary-fixed text-on-secondary-fixed text-[11px] font-bold">
+                  Média
+                </span>
+</div>
+<h3 class="text-sm font-semibold text-on-surface group-hover:text-primary transition-colors leading-snug">
+                Ler artigo do TCC / Artigo Científico
+              </h3>
+<p class="text-xs text-on-surface-variant mt-1.5 line-clamp-2 leading-relaxed">
+                Revisão bibliográfica sobre protocolos de exposição na TCC para agorafobia e transtorno de pânico.
+              </p>
+<!-- Meta pills -->
+<div class="mt-3 flex items-center gap-2 flex-wrap">
+<span class="inline-flex items-center gap-1 text-[11px] font-medium bg-surface-container px-2 py-0.5 rounded text-on-surface-variant">
+<span class="material-symbols-outlined text-[13px]">timer</span> 45 min
+                </span>
+<span class="inline-flex items-center gap-1 text-[11px] font-medium bg-surface-container px-2 py-0.5 rounded text-on-surface-variant">
+<span class="material-symbols-outlined text-[13px]">menu_book</span> 32 páginas
+                </span>
+</div>
+<div class="mt-2.5 pt-2 border-t border-outline-variant/20 flex items-center justify-between text-xs text-on-surface-variant">
+<div class="flex items-center gap-1 text-on-surface font-medium">
+<span class="material-symbols-outlined text-[15px] text-outline">event</span>
+<span>14/10/2026</span>
+</div>
+<span class="text-[11px] text-outline">TCC Protocolos</span>
+</div>
+<div class="mt-3 pt-2 border-t border-outline-variant/20 flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="w-6 h-6 rounded-full bg-primary-container text-on-primary text-[10px] font-bold flex items-center justify-center">
+                    TC
+                  </span>
+<span class="text-xs font-medium text-on-surface-variant">Cognitivo-Comportamental</span>
+</div>
+<span class="material-symbols-outlined text-[18px] text-outline">drag_indicator</span>
+</div>
+</article>
+</div>
+<!-- Elegant Empty Drop Zone -->
+<div class="drop-hint border-dashed border-2 border-outline-variant/40 rounded-xl p-3 mt-3 flex items-center justify-center gap-2 text-outline text-xs bg-surface-container-lowest/30 hover:bg-surface-container-lowest/70 transition-colors">
+<span class="material-symbols-outlined text-[16px]">touch_app</span>
+<span>Arraste demandas pendentes aqui</span>
+</div>
+</div>
+<!-- COLUMN 2: EM ANDAMENTO -->
+<div class="kanban-col flex flex-col bg-surface-container-low/60 rounded-2xl p-3.5 border border-outline-variant/30 shadow-[0_1px_4px_rgba(0,0,0,0.02)] min-h-[580px] transition-colors" data-status="in_progress" id="col-in_progress" ondragleave="handleDragLeave(event)" ondragover="handleDragOver(event)" ondrop="handleDrop(event, 'in_progress')">
+<div class="flex items-center justify-between pb-3 mb-3 border-b border-outline-variant/30">
+<div class="flex items-center gap-2">
+<span class="w-3 h-3 rounded-full bg-primary-container flex-shrink-0 ring-4 ring-primary-container/20"></span>
+<h2 class="text-sm font-bold text-on-surface">Em Andamento</h2>
+<span class="bg-primary-container/20 text-primary-container text-xs font-bold px-2 py-0.5 rounded-full" id="count-in_progress">2</span>
+</div>
+<div class="flex items-center gap-1">
+<button class="text-on-surface-variant hover:text-primary hover:bg-surface-container-lowest p-1 rounded-lg transition-colors" onclick="openNewTaskDrawer('in_progress')" title="Adicionar à lista Em Andamento" type="button">
+<span class="material-symbols-outlined text-[18px]">add</span>
+</button>
+<button class="text-on-surface-variant hover:text-on-surface hover:bg-surface-container-lowest p-1 rounded-lg transition-colors" title="Opções da Coluna" type="button">
+<span class="material-symbols-outlined text-[18px]">more_vert</span>
+</button>
+</div>
+</div>
+<div class="cards-container flex flex-col gap-3 min-h-[380px]" id="container-in_progress">
+<!-- CARD 3: Prontuário de paciente – Davi -->
+<article class="task-card group relative bg-surface-container-lowest rounded-xl p-3.5 border-2 border-primary-container/40 shadow-sm hover:shadow-md cursor-grab active:cursor-grabbing" data-card-id="3" data-context="Atendimento" data-priority="Alta" draggable="true" id="card-3" onclick="openDrawerWithCard(3)" ondragstart="handleDragStart(event)">
+<div class="flex items-start justify-between gap-2 mb-2">
+<span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-tertiary-fixed text-on-tertiary-fixed text-[11px] font-semibold border border-tertiary/20">
+<span class="w-2 h-2 rounded-full bg-tertiary"></span>
+                  Atendimento
+                </span>
+<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-error-container text-on-error-container text-[11px] font-bold">
+<span class="w-1.5 h-1.5 rounded-full bg-error animate-ping"></span>
+                  Hoje 18h
+                </span>
+</div>
+<h3 class="text-sm font-semibold text-on-surface group-hover:text-primary transition-colors leading-snug">
+                Prontuário de paciente – Davi
+              </h3>
+<p class="text-xs text-on-surface-variant mt-1.5 line-clamp-2 leading-relaxed">
+                Evolução de sessão #14. Atualizar registro do teste BDI-II e plano de intervenção semanal.
+              </p>
+<!-- Clinical Progress Bar -->
+<div class="mt-3 pt-1">
+<div class="flex justify-between items-center text-xs text-on-surface-variant mb-1">
+<span class="font-medium text-[11px]">Progresso da Anamnese</span>
+<span class="text-primary-container font-bold text-xs">60%</span>
+</div>
+<div class="w-full bg-surface-container rounded-full h-1.5 overflow-hidden">
+<div class="bg-primary-container h-full rounded-full transition-all duration-300" style="width: 60%"></div>
+</div>
+</div>
+<!-- Meta Footer -->
+<div class="mt-3 pt-2 border-t border-outline-variant/20 flex items-center justify-between text-xs">
+<div class="flex items-center gap-1 text-tertiary font-semibold">
+<span class="material-symbols-outlined text-[15px]">verified_user</span>
+<span>Sigilo CFP Protegido</span>
+</div>
+<span class="text-[11px] px-1.5 py-0.5 rounded bg-surface-container text-on-surface font-semibold">#0142</span>
+</div>
+<div class="mt-2.5 pt-2 border-t border-outline-variant/20 flex items-center justify-between">
+<div class="flex items-center gap-2">
+<div class="w-6 h-6 rounded-full bg-tertiary-fixed text-on-tertiary-fixed text-[10px] font-bold flex items-center justify-center">
+                    DV
+                  </div>
+<span class="text-xs font-medium text-on-surface">Davi M. (Paciente)</span>
+</div>
+<span class="material-symbols-outlined text-[18px] text-outline">drag_indicator</span>
+</div>
+</article>
+<!-- CARD 4: Curso de avaliação psicológica -->
+<article class="task-card group relative bg-surface-container-lowest rounded-xl p-3.5 border border-outline-variant/40 shadow-xs hover:border-primary-container/60 hover:shadow-md cursor-grab active:cursor-grabbing" data-card-id="4" data-context="Estudos" data-priority="Baixa" draggable="true" id="card-4" onclick="openDrawerWithCard(4)" ondragstart="handleDragStart(event)">
+<div class="flex items-start justify-between gap-2 mb-2">
+<span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-primary-fixed text-on-primary-fixed text-[11px] font-semibold border border-primary/20">
+<span class="w-2 h-2 rounded-full bg-primary"></span>
+                  Estudos
+                </span>
+<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-surface-container-high text-on-surface-variant text-[11px] font-semibold">
+                  Baixa
+                </span>
+</div>
+<h3 class="text-sm font-semibold text-on-surface group-hover:text-primary transition-colors leading-snug">
+                Curso de avaliação psicológica
+              </h3>
+<p class="text-xs text-on-surface-variant mt-1.5 line-clamp-2 leading-relaxed">
+                Módulo 4: Aplicação e interpretação do WISC-IV e baterias complementares de atenção concentrada.
+              </p>
+<!-- Learning Step -->
+<div class="mt-3 bg-surface-container-low/60 rounded-lg p-2 text-xs flex items-center justify-between text-on-surface-variant">
+<span class="flex items-center gap-1 font-medium text-[11px]">
+<span class="material-symbols-outlined text-[14px] text-primary">play_circle</span>
+                  Módulo 3 de 6 concluído
+                </span>
+<span class="font-bold text-primary text-[11px]">50%</span>
+</div>
+<div class="mt-2.5 pt-2 border-t border-outline-variant/20 flex items-center justify-between text-xs text-on-surface-variant">
+<div class="flex items-center gap-1 text-on-surface">
+<span class="material-symbols-outlined text-[15px] text-outline">schedule</span>
+<span>Prazo: 20/10/2026</span>
+</div>
+<span class="text-[11px] text-outline">Certificação CFP</span>
+</div>
+<div class="mt-2.5 pt-2 border-t border-outline-variant/20 flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="w-6 h-6 rounded-full bg-primary text-on-primary text-[10px] font-bold flex items-center justify-center">
+                    AP
+                  </span>
+<span class="text-xs font-medium text-on-surface-variant">Instituto Neuropsico</span>
+</div>
+<span class="material-symbols-outlined text-[18px] text-outline">drag_indicator</span>
+</div>
+</article>
+</div>
+<div class="drop-hint border-dashed border-2 border-outline-variant/40 rounded-xl p-3 mt-3 flex items-center justify-center gap-2 text-outline text-xs bg-surface-container-lowest/30 hover:bg-surface-container-lowest/70 transition-colors">
+<span class="material-symbols-outlined text-[16px]">hourglass_top</span>
+<span>Arraste tarefas em execução aqui</span>
+</div>
+</div>
+<!-- COLUMN 3: CONCLUÍDAS -->
+<div class="kanban-col flex flex-col bg-surface-container-low/60 rounded-2xl p-3.5 border border-outline-variant/30 shadow-[0_1px_4px_rgba(0,0,0,0.02)] min-h-[580px] transition-colors" data-status="done" id="col-done" ondragleave="handleDragLeave(event)" ondragover="handleDragOver(event)" ondrop="handleDrop(event, 'done')">
+<div class="flex items-center justify-between pb-3 mb-3 border-b border-outline-variant/30">
+<div class="flex items-center gap-2">
+<span class="w-3 h-3 rounded-full bg-tertiary flex-shrink-0 ring-4 ring-tertiary/20"></span>
+<h2 class="text-sm font-bold text-on-surface">Concluídas</h2>
+<span class="bg-tertiary/20 text-tertiary text-xs font-bold px-2 py-0.5 rounded-full" id="count-done">1</span>
+</div>
+<div class="flex items-center gap-1">
+<button class="text-on-surface-variant hover:text-tertiary hover:bg-surface-container-lowest p-1 rounded-lg transition-colors" onclick="showToast('Histórico de prontuários arquivados')" title="Histórico" type="button">
+<span class="material-symbols-outlined text-[18px]">history</span>
+</button>
+</div>
+</div>
+<div class="cards-container flex flex-col gap-3 min-h-[380px]" id="container-done">
+<!-- CARD 5: Prontuário de paciente – Luiza -->
+<article class="task-card group relative bg-surface-container-lowest/80 rounded-xl p-3.5 border border-outline-variant/30 shadow-xs hover:shadow-md cursor-grab active:cursor-grabbing opacity-90 hover:opacity-100" data-card-id="5" data-context="Atendimento" data-priority="Média" draggable="true" id="card-5" onclick="openDrawerWithCard(5)" ondragstart="handleDragStart(event)">
+<div class="flex items-start justify-between gap-2 mb-2">
+<span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-tertiary-fixed text-on-tertiary-fixed text-[11px] font-semibold">
+<span class="w-2 h-2 rounded-full bg-tertiary"></span>
+                  Atendimento
+                </span>
+<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-tertiary-fixed-dim text-on-tertiary-fixed text-[11px] font-bold">
+<span class="material-symbols-outlined text-[14px]">check</span>
+                  Concluído
+                </span>
+</div>
+<h3 class="text-sm font-semibold text-outline line-through leading-snug group-hover:text-on-surface transition-colors">
+                Prontuário de paciente – Luiza
+              </h3>
+<p class="text-xs text-on-surface-variant/80 mt-1.5 line-clamp-2 leading-relaxed">
+                Relatório de encaminhamento emitido para médico psiquiatra e guarda em nuvem criptografada concluída.
+              </p>
+<div class="mt-3 flex items-center justify-between text-xs text-on-surface-variant bg-surface-container-low/40 px-2.5 py-1.5 rounded-lg border border-outline-variant/20">
+<div class="flex items-center gap-1 text-tertiary font-semibold text-[11px]">
+<span class="material-symbols-outlined text-[14px]">task_alt</span>
+<span>Concluído ontem às 17:40</span>
+</div>
+<span class="text-[11px] text-outline">Encaminhamento OK</span>
+</div>
+<div class="mt-2.5 pt-2 border-t border-outline-variant/20 flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="w-6 h-6 rounded-full bg-surface-container-highest text-on-surface text-[10px] font-bold flex items-center justify-center">
+                    LZ
+                  </span>
+<span class="text-xs font-medium text-on-surface-variant">Luiza R. (#0138)</span>
+</div>
+<span class="material-symbols-outlined text-[18px] text-outline">lock</span>
+</div>
+</article>
+</div>
+<!-- Drop target area placeholder -->
+<div class="drop-hint border-dashed border-2 border-outline-variant/40 rounded-xl p-4 mt-3 flex flex-col items-center justify-center text-center text-outline bg-surface-container-lowest/30 hover:bg-surface-container-lowest/80 transition-colors">
+<span class="material-symbols-outlined text-[24px] mb-1 text-tertiary">done_all</span>
+<span class="text-xs font-semibold text-on-surface">Arraste tarefas concluídas</span>
+<span class="text-[11px] text-outline">Atualização instantânea no prontuário</span>
+</div>
+</div>
+</section>
+<!-- KEYBOARD SHORTCUTS HINTS BAR (Operate Mode Ergonomics) -->
+<footer class="fixed bottom-0 left-64 right-0 h-10 bg-surface-bright/95 backdrop-blur-md border-t border-outline-variant/30 px-6 z-30 flex items-center justify-between text-xs text-on-surface-variant shadow-[0_-2px_6px_rgba(0,0,0,0.02)]">
+<div class="flex items-center gap-4">
+<span class="text-[11px] font-semibold text-outline uppercase tracking-wider hidden lg:inline">Atalhos rápidos:</span>
+<div class="flex items-center gap-3">
+<span class="inline-flex items-center gap-1 text-[11px]">
+<kbd class="px-1.5 py-0.5 rounded bg-surface-container border border-outline-variant/40 text-on-surface font-semibold text-[10px]">N</kbd> Nova Tarefa
+            </span>
+<span class="inline-flex items-center gap-1 text-[11px]">
+<kbd class="px-1.5 py-0.5 rounded bg-surface-container border border-outline-variant/40 text-on-surface font-semibold text-[10px]">/</kbd> Buscar
+            </span>
+<span class="inline-flex items-center gap-1 text-[11px]">
+<kbd class="px-1.5 py-0.5 rounded bg-surface-container border border-outline-variant/40 text-on-surface font-semibold text-[10px]">ESC</kbd> Fechar Gaveta
+            </span>
+<span class="inline-flex items-center gap-1 text-[11px] hidden sm:inline-flex">
+<kbd class="px-1.5 py-0.5 rounded bg-surface-container border border-outline-variant/40 text-on-surface font-semibold text-[10px]">1-3</kbd> Mover Coluna
+            </span>
+</div>
+</div>
+<div class="flex items-center gap-3 text-[11px] text-outline">
+<span class="inline-flex items-center gap-1">
+<span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+            Sincronização em tempo real ativa
+          </span>
+<span class="hidden md:inline">• PsicoTask v2.4</span>
+</div>
+</footer>
+</main>
+</div>
+<!-- CLINICAL TASK DETAILS DRAWER / MODAL (Seamless Right-Sliding Sheet) -->
+<div class="fixed inset-0 z-50 bg-inverse-surface/40 backdrop-blur-xs flex justify-end opacity-0 pointer-events-none transition-opacity duration-200" id="taskModalDrawer">
+<div class="bg-surface-container-lowest w-full max-w-xl h-full shadow-2xl flex flex-col transform translate-x-full transition-transform duration-300 ease-out border-l border-outline-variant/30">
+<!-- Drawer Header -->
+<div class="sticky top-0 bg-surface-container-lowest/95 backdrop-blur-md px-6 py-4 flex items-center justify-between border-b border-outline-variant/30 z-10">
+<div class="flex items-center gap-2.5">
+<span class="w-3 h-3 rounded-full bg-primary-container" id="drawerStatusDot"></span>
+<div>
+<h2 class="text-base font-bold text-on-surface leading-tight" id="drawerMainHeading">Editar Tarefa Clínica</h2>
+<p class="text-[11px] text-on-surface-variant font-medium" id="drawerSubheading">Demanda de Rotina Profissional</p>
+</div>
+</div>
+<div class="flex items-center gap-1">
+<button class="p-1.5 text-on-surface-variant hover:text-error hover:bg-error-container/40 rounded-lg transition-colors" onclick="deleteCurrentTask()" title="Excluir Demanda" type="button">
+<span class="material-symbols-outlined text-[20px]">delete</span>
+</button>
+<button class="p-1.5 text-on-surface-variant hover:text-on-surface hover:bg-surface-container rounded-lg transition-colors" onclick="closeDrawer()" title="Fechar (ESC)" type="button">
+<span class="material-symbols-outlined text-[20px]">close</span>
+</button>
+</div>
+</div>
+<!-- Drawer Content Scrollable Body -->
+<div class="p-6 flex flex-col gap-4 flex-1 overflow-y-auto">
+<!-- Status Switcher Tabs -->
+<div>
+<label class="block text-[11px] font-bold uppercase tracking-wider text-on-surface-variant mb-1.5">Coluna no Quadro</label>
+<div class="grid grid-cols-3 gap-1 bg-surface-container-low p-1 rounded-xl border border-outline-variant/30">
+<button class="py-1.5 text-xs font-semibold rounded-lg text-on-surface-variant transition-all" id="drawerColBtn-todo" onclick="setDrawerColumn('todo')">A Fazer</button>
+<button class="py-1.5 text-xs font-semibold rounded-lg bg-surface-container-lowest text-on-surface shadow-xs transition-all" id="drawerColBtn-in_progress" onclick="setDrawerColumn('in_progress')">Em Andamento</button>
+<button class="py-1.5 text-xs font-semibold rounded-lg text-on-surface-variant transition-all" id="drawerColBtn-done" onclick="setDrawerColumn('done')">Concluída</button>
+</div>
+</div>
+<!-- Task Title -->
+<div>
+<label class="block text-[11px] font-bold uppercase tracking-wider text-on-surface-variant mb-1" for="drawerTaskTitle">Título da Demanda</label>
+<input class="w-full px-3.5 py-2.5 bg-surface-container-low/60 hover:bg-surface-container-low border border-outline-variant/40 rounded-xl text-sm font-semibold text-on-surface shadow-xs focus:ring-2 focus:ring-primary-container focus:bg-surface-container-lowest focus:border-transparent transition-all" id="drawerTaskTitle" placeholder="Ex: Relatório para supervisão" type="text" value="Relatório para supervisão"/>
+</div>
+<!-- Professional Context Selector (Exact 4 Wireframe Contexts) -->
+<div>
+<label class="block text-[11px] font-bold uppercase tracking-wider text-on-surface-variant mb-1.5">Contexto Profissional</label>
+<div class="grid grid-cols-2 sm:grid-cols-4 gap-2" id="drawerContextSelector">
+<button class="flex items-center justify-center gap-1.5 py-2 px-2 rounded-xl border border-outline-variant/30 bg-surface-container-low hover:bg-surface-container text-xs font-medium text-on-surface transition-all" data-value="Atendimento" onclick="setDrawerContext('Atendimento')">
+<span class="w-2 h-2 rounded-full bg-tertiary"></span>
+              Atendimento
+            </button>
+<button class="flex items-center justify-center gap-1.5 py-2 px-2 rounded-xl border border-outline-variant/30 bg-surface-container-low hover:bg-surface-container text-xs font-medium text-on-surface transition-all" data-value="Estudos" onclick="setDrawerContext('Estudos')">
+<span class="w-2 h-2 rounded-full bg-primary"></span>
+              Estudos
+            </button>
+<button class="flex items-center justify-center gap-1.5 py-2 px-2 rounded-xl border-2 border-secondary bg-secondary-fixed text-on-secondary-fixed text-xs font-bold shadow-xs transition-all" data-value="Supervisão" onclick="setDrawerContext('Supervisão')">
+<span class="w-2 h-2 rounded-full bg-secondary"></span>
+              Supervisão
+            </button>
+<button class="flex items-center justify-center gap-1.5 py-2 px-2 rounded-xl border border-outline-variant/30 bg-surface-container-low hover:bg-surface-container text-xs font-medium text-on-surface transition-all" data-value="Administração" onclick="setDrawerContext('Administração')">
+<span class="w-2 h-2 rounded-full bg-surface-variant"></span>
+              Admin
+            </button>
+</div>
+</div>
+<!-- Priority & Deadlines (Wireframe Alignment) -->
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+<div>
+<label class="block text-[11px] font-bold uppercase tracking-wider text-on-surface-variant mb-1">Nível de Prioridade</label>
+<div class="flex items-center bg-surface-container-low p-1 rounded-xl border border-outline-variant/30">
+<button class="flex-1 py-1.5 rounded-lg text-xs font-semibold text-on-surface-variant transition-all" id="prioBtn-Baixa" onclick="setDrawerPriority('Baixa')">Baixa</button>
+<button class="flex-1 py-1.5 rounded-lg text-xs font-semibold text-on-surface-variant transition-all" id="prioBtn-Média" onclick="setDrawerPriority('Média')">Média</button>
+<button class="flex-1 py-1.5 rounded-lg bg-error-container text-on-error-container font-bold text-xs shadow-xs transition-all" id="prioBtn-Alta" onclick="setDrawerPriority('Alta')">Alta</button>
+</div>
+</div>
+<div>
+<label class="block text-[11px] font-bold uppercase tracking-wider text-on-surface-variant mb-1" for="drawerTaskDate">Prazo de Entrega</label>
+<div class="relative">
+<input class="w-full px-3 py-2 bg-surface-container-low border border-outline-variant/40 rounded-xl text-xs font-semibold text-on-surface focus:outline-none focus:ring-2 focus:ring-primary-container" id="drawerTaskDate" type="date" value="2026-10-10"/>
+</div>
+</div>
+</div>
+<!-- Reminder Selector (Wireframe Fidelity: '1 dia antes') -->
+<div>
+<label class="block text-[11px] font-bold uppercase tracking-wider text-on-surface-variant mb-1" for="drawerReminderSelect">Lembrete Automático</label>
+<div class="relative">
+<select class="w-full px-3.5 py-2.5 bg-surface-container-low border border-outline-variant/40 rounded-xl text-xs font-medium text-on-surface appearance-none focus:outline-none focus:ring-2 focus:ring-primary-container" id="drawerReminderSelect">
+<option selected="">1 dia antes (09/10/2026 às 08:00)</option>
+<option>2 horas antes do prazo</option>
+<option>No dia pela manhã (07:00)</option>
+<option>Sem lembrete programado</option>
+</select>
+<span class="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-on-surface-variant text-[18px]">notifications</span>
+</div>
+</div>
+<!-- Description / Clinical Notes with Confidentiality Badge -->
+<div>
+<div class="flex items-center justify-between mb-1.5">
+<label class="text-[11px] font-bold uppercase tracking-wider text-on-surface-variant" for="drawerTaskDesc">Descrição Clínica &amp; Pontos de Manejo</label>
+<span class="inline-flex items-center gap-1 text-[11px] font-bold text-tertiary bg-tertiary-fixed/40 px-2 py-0.5 rounded-md">
+<span class="material-symbols-outlined text-[13px]">lock</span> Sigilo Ético CRP
+            </span>
+</div>
+<textarea class="w-full p-3 bg-surface-container-low/70 border border-outline-variant/40 rounded-xl text-xs leading-relaxed text-on-surface focus:bg-surface-container-lowest focus:ring-2 focus:ring-primary-container focus:outline-none transition-all" id="drawerTaskDesc" placeholder="Descreva os pontos de manejo e anotações pertinentes..." rows="4">Resumir os casos acompanhados da semana para a reunião com foco no manejo de ansiedade generalizada e estruturação de tarefas terapêuticas de casa.</textarea>
+</div>
+<!-- Interactive Checklist Items (Rigorous Craft) -->
+<div class="bg-surface-container-low/50 rounded-xl p-3 border border-outline-variant/30">
+<div class="flex items-center justify-between mb-2">
+<span class="text-[11px] font-bold uppercase tracking-wider text-on-surface-variant">Checklist de Itens</span>
+<span class="text-[11px] text-primary font-bold" id="checklistCounter">0 / 4 concluídos</span>
+</div>
+<div class="flex flex-col gap-2" id="checklistItemsContainer">
+<label class="flex items-center gap-2.5 text-xs text-on-surface cursor-pointer select-none">
+<input class="w-4 h-4 rounded text-primary-container border-outline-variant focus:ring-primary-container" onchange="updateChecklistProgress()" type="checkbox"/>
+<span>Revisar anotações da sessão do paciente Davi</span>
+</label>
+<label class="flex items-center gap-2.5 text-xs text-on-surface cursor-pointer select-none">
+<input class="w-4 h-4 rounded text-primary-container border-outline-variant focus:ring-primary-container" onchange="updateChecklistProgress()" type="checkbox"/>
+<span>Levantar dúvidas de manejo para a supervisora Marta</span>
+</label>
+<label class="flex items-center gap-2.5 text-xs text-on-surface cursor-pointer select-none">
+<input class="w-4 h-4 rounded text-primary-container border-outline-variant focus:ring-primary-container" onchange="updateChecklistProgress()" type="checkbox"/>
+<span>Calcular escores recentes da escala BDI-II</span>
+</label>
+<label class="flex items-center gap-2.5 text-xs text-on-surface cursor-pointer select-none">
+<input class="w-4 h-4 rounded text-primary-container border-outline-variant focus:ring-primary-container" onchange="updateChecklistProgress()" type="checkbox"/>
+<span>Exportar minuta com nomes fictícios para guarda</span>
+</label>
+</div>
+</div>
+</div>
+<!-- Drawer Actions Footer -->
+<div class="sticky bottom-0 bg-surface-container-lowest px-6 py-3.5 flex items-center justify-between border-t border-outline-variant/30 gap-3">
+<button class="px-3.5 py-2 text-on-surface-variant hover:text-on-surface hover:bg-surface-container rounded-xl text-xs font-semibold transition-colors" onclick="closeDrawer()" type="button">
+          Cancelar
+        </button>
+<div class="flex items-center gap-2">
+<button class="px-3.5 py-2 bg-surface-container-high/60 hover:bg-surface-container-high text-on-surface rounded-xl text-xs font-semibold transition-colors" onclick="showToast('Rascunho salvo')" type="button">
+            Salvar Rascunho
+          </button>
+<button class="px-5 py-2 bg-primary-container hover:bg-primary text-on-primary text-xs font-semibold rounded-xl shadow-xs transition-all flex items-center gap-1.5" onclick="saveDrawerChanges()" type="button">
+<span class="material-symbols-outlined text-[16px]">check</span>
+<span>Salvar Alterações</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+<!-- SHORTCUTS DIALOG MODAL -->
+<div class="fixed inset-0 z-50 bg-inverse-surface/40 backdrop-blur-xs flex items-center justify-center opacity-0 pointer-events-none transition-opacity" id="shortcutsModal">
+<div class="bg-surface-container-lowest rounded-2xl max-w-md w-full p-6 shadow-2xl border border-outline-variant/30 m-4">
+<div class="flex items-center justify-between pb-3 border-b border-outline-variant/30 mb-4">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-[22px]">keyboard</span>
+<h3 class="font-bold text-sm text-on-surface">Atalhos do Operador Clínico</h3>
+</div>
+<button class="text-outline hover:text-on-surface" onclick="toggleShortcutsModal()">
+<span class="material-symbols-outlined text-[20px]">close</span>
+</button>
+</div>
+<div class="flex flex-col gap-2.5 text-xs">
+<div class="flex items-center justify-between py-1 border-b border-outline-variant/20">
+<span class="text-on-surface-variant">Nova Demanda Rápida</span>
+<kbd class="px-2 py-0.5 rounded bg-surface-container font-mono font-bold">N</kbd>
+</div>
+<div class="flex items-center justify-between py-1 border-b border-outline-variant/20">
+<span class="text-on-surface-variant">Focar Busca Global</span>
+<kbd class="px-2 py-0.5 rounded bg-surface-container font-mono font-bold">/  ou  ⌘K</kbd>
+</div>
+<div class="flex items-center justify-between py-1 border-b border-outline-variant/20">
+<span class="text-on-surface-variant">Fechar Gaveta / Cancelar</span>
+<kbd class="px-2 py-0.5 rounded bg-surface-container font-mono font-bold">ESC</kbd>
+</div>
+<div class="flex items-center justify-between py-1 border-b border-outline-variant/20">
+<span class="text-on-surface-variant">Mover Tarefa Selecionada</span>
+<kbd class="px-2 py-0.5 rounded bg-surface-container font-mono font-bold">1 (A Fazer) / 2 (Em Andamento) / 3 (Concluída)</kbd>
+</div>
+</div>
+<button class="w-full mt-5 py-2 bg-surface-container hover:bg-surface-container-high rounded-xl text-xs font-semibold text-on-surface transition-colors" onclick="toggleShortcutsModal()">
+        Entendi
+      </button>
+</div>
+</div>
+<!-- TOAST FEEDBACK NOTIFICATION -->
+<div class="fixed bottom-12 right-6 z-50 bg-inverse-surface text-inverse-on-surface text-xs font-medium px-4 py-2.5 rounded-xl shadow-lg border border-white/10 flex items-center gap-2 transform translate-y-16 opacity-0 transition-all duration-300 pointer-events-none" id="toastBox">
+<span class="material-symbols-outlined text-[18px] text-tertiary-fixed" id="toastIcon">check_circle</span>
+<span id="toastMessage">Operação realizada com sucesso</span>
+</div>
+<!-- APPLICATION LOGIC & DRAG-AND-DROP INTERACTION -->
+<script>
+    // State storage for tasks
+    let currentEditingCardId = 1;
+    let draggedCardId = null;
+
+    const tasksData = {
+      1: {
+        id: 1,
+        title: "Relatório para supervisão",
+        context: "Supervisão",
+        priority: "Alta",
+        date: "2026-10-10",
+        reminder: "1 dia antes (09/10/2026 às 08:00)",
+        desc: "Resumir os casos acompanhados da semana para a reunião com foco no manejo de ansiedade generalizada e pontos a definir.",
+        status: "todo"
+      },
+      2: {
+        id: 2,
+        title: "Ler artigo do TCC / Artigo Científico",
+        context: "Estudos",
+        priority: "Média",
+        date: "2026-10-14",
+        reminder: "Sem lembrete programado",
+        desc: "Revisão bibliográfica sobre protocolos de exposição na TCC para agorafobia e transtorno de pânico.",
+        status: "todo"
+      },
+      3: {
+        id: 3,
+        title: "Prontuário de paciente – Davi",
+        context: "Atendimento",
+        priority: "Alta",
+        date: "2026-10-07",
+        reminder: "2 horas antes do prazo",
+        desc: "Evolução de sessão #14. Atualizar registro do teste BDI-II e plano de intervenção semanal com sigilo resguardado.",
+        status: "in_progress"
+      },
+      4: {
+        id: 4,
+        title: "Curso de avaliação psicológica",
+        context: "Estudos",
+        priority: "Baixa",
+        date: "2026-10-20",
+        reminder: "Sem lembrete programado",
+        desc: "Módulo 4: Aplicação e interpretação do WISC-IV e baterias complementares de atenção concentrada.",
+        status: "in_progress"
+      },
+      5: {
+        id: 5,
+        title: "Prontuário de paciente – Luiza",
+        context: "Atendimento",
+        priority: "Média",
+        date: "2026-10-06",
+        reminder: "Sem lembrete programado",
+        desc: "Relatório de encaminhamento emitido para médico psiquiatra e guarda em nuvem criptografada concluída.",
+        status: "done"
+      }
+    };
+
+    // Drag and Drop Event Handlers
+    function handleDragStart(e) {
+      draggedCardId = e.target.closest('.task-card').getAttribute('data-card-id');
+      e.target.closest('.task-card').classList.add('dragging');
+      e.dataTransfer.setData('text/plain', draggedCardId);
+      e.dataTransfer.effectAllowed = 'move';
+    }
+
+    document.addEventListener('dragend', (e) => {
+      const card = document.querySelector('.task-card.dragging');
+      if (card) card.classList.remove('dragging');
+      document.querySelectorAll('.kanban-col').forEach(col => col.classList.remove('drag-over'));
+    });
+
+    function handleDragOver(e) {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      const col = e.currentTarget;
+      if (!col.classList.contains('drag-over')) {
+        col.classList.add('drag-over');
+      }
+    }
+
+    function handleDragLeave(e) {
+      e.currentTarget.classList.remove('drag-over');
+    }
+
+    function handleDrop(e, targetStatus) {
+      e.preventDefault();
+      e.currentTarget.classList.remove('drag-over');
+      const cardId = e.dataTransfer.getData('text/plain') || draggedCardId;
+      if (!cardId) return;
+
+      const cardEl = document.getElementById('card-' + cardId);
+      const targetContainer = document.getElementById('container-' + targetStatus);
+      
+      if (cardEl && targetContainer) {
+        targetContainer.appendChild(cardEl);
+        if (tasksData[cardId]) {
+          tasksData[cardId].status = targetStatus;
+        }
+        updateColumnCounts();
+        showToast(`Demanda movida para "${getColumnName(targetStatus)}"`);
+      }
+    }
+
+    function getColumnName(status) {
+      if (status === 'todo') return 'A Fazer';
+      if (status === 'in_progress') return 'Em Andamento';
+      return 'Concluídas';
+    }
+
+    function updateColumnCounts() {
+      const todoCount = document.getElementById('container-todo').querySelectorAll('.task-card').length;
+      const progressCount = document.getElementById('container-in_progress').querySelectorAll('.task-card').length;
+      const doneCount = document.getElementById('container-done').querySelectorAll('.task-card').length;
+
+      document.getElementById('count-todo').textContent = todoCount;
+      document.getElementById('count-in_progress').textContent = progressCount;
+      document.getElementById('count-done').textContent = doneCount;
+      document.getElementById('metricTotalActive').textContent = todoCount + progressCount + doneCount;
+    }
+
+    // Modal Drawer Logic
+    const drawer = document.getElementById('taskModalDrawer');
+    const drawerPanel = drawer ? drawer.querySelector('div') : null;
+
+    function openDrawerWithCard(cardId) {
+      currentEditingCardId = cardId;
+      const task = tasksData[cardId];
+      if (!task) return;
+
+      document.getElementById('drawerMainHeading').textContent = 'Editar Demanda #' + cardId;
+      document.getElementById('drawerTaskTitle').value = task.title;
+      document.getElementById('drawerTaskDesc').value = task.desc;
+      document.getElementById('drawerTaskDate').value = task.date;
+      setDrawerContext(task.context);
+      setDrawerPriority(task.priority);
+      setDrawerColumn(task.status);
+
+      showDrawerUI();
+    }
+
+    function openNewTaskDrawer(preselectedStatus = 'todo') {
+      currentEditingCardId = null;
+      document.getElementById('drawerMainHeading').textContent = 'Nova Tarefa Clínica';
+      document.getElementById('drawerTaskTitle').value = '';
+      document.getElementById('drawerTaskDesc').value = '';
+      document.getElementById('drawerTaskDate').value = '2026-10-10';
+      setDrawerContext('Atendimento');
+      setDrawerPriority('Alta');
+      setDrawerColumn(preselectedStatus);
+
+      showDrawerUI();
+      setTimeout(() => document.getElementById('drawerTaskTitle').focus(), 150);
+    }
+
+    function showDrawerUI() {
+      if (!drawer || !drawerPanel) return;
+      drawer.classList.remove('opacity-0', 'pointer-events-none');
+      drawer.classList.add('opacity-100');
+      drawerPanel.classList.remove('translate-x-full');
+      drawerPanel.classList.add('translate-x-0');
+    }
+
+    function closeDrawer() {
+      if (!drawer || !drawerPanel) return;
+      drawer.classList.remove('opacity-100');
+      drawer.classList.add('opacity-0', 'pointer-events-none');
+      drawerPanel.classList.remove('translate-x-0');
+      drawerPanel.classList.add('translate-x-full');
+    }
+
+    if (drawer) {
+      drawer.addEventListener('click', (e) => {
+        if (e.target === drawer) closeDrawer();
+      });
+    }
+
+    let activeDrawerContext = 'Supervisão';
+    function setDrawerContext(contextName) {
+      activeDrawerContext = contextName;
+      const buttons = document.querySelectorAll('#drawerContextSelector button');
+      buttons.forEach(btn => {
+        if (btn.getAttribute('data-value') === contextName) {
+          btn.className = "flex items-center justify-center gap-1.5 py-2 px-2 rounded-xl border-2 border-primary bg-primary-fixed text-on-primary-fixed text-xs font-bold shadow-xs transition-all";
+        } else {
+          btn.className = "flex items-center justify-center gap-1.5 py-2 px-2 rounded-xl border border-outline-variant/30 bg-surface-container-low hover:bg-surface-container text-xs font-medium text-on-surface transition-all";
+        }
+      });
+    }
+
+    let activeDrawerPriority = 'Alta';
+    function setDrawerPriority(prio) {
+      activeDrawerPriority = prio;
+      const bAlta = document.getElementById('prioBtn-Alta');
+      const bMedia = document.getElementById('prioBtn-Média');
+      const bBaixa = document.getElementById('prioBtn-Baixa');
+      
+      [bAlta, bMedia, bBaixa].forEach(b => b.className = "flex-1 py-1.5 rounded-lg text-xs font-semibold text-on-surface-variant transition-all");
+
+      if (prio === 'Alta') bAlta.className = "flex-1 py-1.5 rounded-lg bg-error-container text-on-error-container font-bold text-xs shadow-xs transition-all";
+      if (prio === 'Média') bMedia.className = "flex-1 py-1.5 rounded-lg bg-secondary-fixed text-on-secondary-fixed font-bold text-xs shadow-xs transition-all";
+      if (prio === 'Baixa') bBaixa.className = "flex-1 py-1.5 rounded-lg bg-surface-container-high text-on-surface font-bold text-xs shadow-xs transition-all";
+    }
+
+    let activeDrawerColumn = 'in_progress';
+    function setDrawerColumn(status) {
+      activeDrawerColumn = status;
+      ['todo', 'in_progress', 'done'].forEach(st => {
+        const btn = document.getElementById('drawerColBtn-' + st);
+        if (btn) {
+          if (st === status) {
+            btn.className = "py-1.5 text-xs font-bold rounded-lg bg-surface-container-lowest text-on-surface shadow-xs transition-all";
+          } else {
+            btn.className = "py-1.5 text-xs font-semibold rounded-lg text-on-surface-variant hover:text-on-surface transition-all";
+          }
+        }
+      });
+      const dot = document.getElementById('drawerStatusDot');
+      if (dot) {
+        if (status === 'todo') dot.className = "w-3 h-3 rounded-full bg-primary";
+        else if (status === 'in_progress') dot.className = "w-3 h-3 rounded-full bg-primary-container";
+        else dot.className = "w-3 h-3 rounded-full bg-tertiary";
+      }
+    }
+
+    function saveDrawerChanges() {
+      const title = document.getElementById('drawerTaskTitle').value.trim();
+      if (!title) {
+        showToast('Por favor, informe o título da tarefa.');
+        return;
+      }
+      if (currentEditingCardId && tasksData[currentEditingCardId]) {
+        tasksData[currentEditingCardId].title = title;
+        tasksData[currentEditingCardId].desc = document.getElementById('drawerTaskDesc').value;
+        tasksData[currentEditingCardId].context = activeDrawerContext;
+        tasksData[currentEditingCardId].priority = activeDrawerPriority;
+        tasksData[currentEditingCardId].date = document.getElementById('drawerTaskDate').value;
+        
+        // Move physically to column if changed
+        const cardEl = document.getElementById('card-' + currentEditingCardId);
+        const targetContainer = document.getElementById('container-' + activeDrawerColumn);
+        if (cardEl && targetContainer && cardEl.parentElement !== targetContainer) {
+          targetContainer.appendChild(cardEl);
+          tasksData[currentEditingCardId].status = activeDrawerColumn;
+        }
+
+        // Update card title text in view
+        if (cardEl) {
+          const titleEl = cardEl.querySelector('h3');
+          if (titleEl) titleEl.textContent = title;
+        }
+
+        updateColumnCounts();
+        showToast('Demanda atualizada com sucesso');
+      } else {
+        showToast('Nova demanda registrada na rotina');
+      }
+      closeDrawer();
+    }
+
+    function deleteCurrentTask() {
+      if (currentEditingCardId) {
+        const cardEl = document.getElementById('card-' + currentEditingCardId);
+        if (cardEl) cardEl.remove();
+        delete tasksData[currentEditingCardId];
+        updateColumnCounts();
+        showToast('Demanda removida do painel');
+      }
+      closeDrawer();
+    }
+
+    function updateChecklistProgress() {
+      const checkboxes = document.querySelectorAll('#checklistItemsContainer input[type="checkbox"]');
+      const checked = Array.from(checkboxes).filter(cb => cb.checked).length;
+      document.getElementById('checklistCounter').textContent = `${checked} / ${checkboxes.length} concluídos`;
+    }
+
+    // Filter by Context Bar
+    function filterByContext(context) {
+      document.querySelectorAll('.filter-pill').forEach(pill => {
+        if (pill.getAttribute('data-context') === context) {
+          pill.className = "filter-pill active px-3 py-1 rounded-full text-xs font-semibold bg-primary text-on-primary transition-all shadow-xs";
+        } else {
+          pill.className = "filter-pill flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-surface-container-low text-on-surface-variant hover:bg-surface-container hover:text-on-surface border border-outline-variant/30 transition-all";
+        }
+      });
+
+      document.querySelectorAll('.task-card').forEach(card => {
+        const cardContext = card.getAttribute('data-context');
+        if (context === 'Todos' || cardContext === context) {
+          card.style.display = 'block';
+        } else {
+          card.style.display = 'none';
+        }
+      });
+    }
+
+    // Filter by Priority
+    function filterByPriority(priority) {
+      document.querySelectorAll('.task-card').forEach(card => {
+        const cardPriority = card.getAttribute('data-priority');
+        if (priority === 'all' || cardPriority === priority) {
+          card.style.display = 'block';
+        } else {
+          card.style.display = 'none';
+        }
+      });
+      showToast(priority === 'all' ? 'Mostrando todas prioridades' : `Filtrando: Prioridade ${priority}`);
+    }
+
+    // Filter Cards in Board by Text
+    function filterBoardCards(val) {
+      const query = val.toLowerCase().trim();
+      const clearBtn = document.getElementById('clearSearchBtn');
+      if (clearBtn) clearBtn.style.display = query ? 'block' : 'none';
+
+      document.querySelectorAll('.task-card').forEach(card => {
+        const text = card.textContent.toLowerCase();
+        card.style.display = text.includes(query) ? 'block' : 'none';
+      });
+    }
+
+    function clearBoardFilter() {
+      const input = document.getElementById('boardFilterInput');
+      if (input) {
+        input.value = '';
+        filterBoardCards('');
+      }
+    }
+
+    // Shortcuts Modal
+    function toggleShortcutsModal() {
+      const modal = document.getElementById('shortcutsModal');
+      if (!modal) return;
+      if (modal.classList.contains('opacity-0')) {
+        modal.classList.remove('opacity-0', 'pointer-events-none');
+        modal.classList.add('opacity-100');
+      } else {
+        modal.classList.add('opacity-0', 'pointer-events-none');
+        modal.classList.remove('opacity-100');
+      }
+    }
+
+    // Global Keyboard Shortcuts (Operate Mode Ergonomics)
+    document.addEventListener('keydown', (e) => {
+      // Don't capture when typing in inputs/textareas
+      if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement.tagName)) {
+        if (e.key === 'Escape') {
+          document.activeElement.blur();
+          closeDrawer();
+        }
+        return;
+      }
+
+      if (e.key === 'n' || e.key === 'N') {
+        e.preventDefault();
+        openNewTaskDrawer('todo');
+      } else if (e.key === '/' || (e.metaKey && e.key === 'k') || (e.ctrlKey && e.key === 'k')) {
+        e.preventDefault();
+        document.getElementById('boardFilterInput').focus();
+      } else if (e.key === 'Escape') {
+        closeDrawer();
+        const sm = document.getElementById('shortcutsModal');
+        if (sm && !sm.classList.contains('opacity-0')) toggleShortcutsModal();
+      } else if (e.key === '?' && e.shiftKey) {
+        toggleShortcutsModal();
+      }
+    });
+
+    // Toast Feedback
+    function showToast(message) {
+      const toast = document.getElementById('toastBox');
+      const msg = document.getElementById('toastMessage');
+      if (!toast || !msg) return;
+
+      msg.textContent = message;
+      toast.classList.remove('translate-y-16', 'opacity-0', 'pointer-events-none');
+      toast.classList.add('translate-y-0', 'opacity-100');
+
+      setTimeout(() => {
+        toast.classList.remove('translate-y-0', 'opacity-100');
+        toast.classList.add('translate-y-16', 'opacity-0', 'pointer-events-none');
+      }, 2600);
+    }
+
+    // Top Header New Task Trigger
+    const topNewBtn = document.getElementById('topNewTaskBtn');
+    if (topNewBtn) {
+      topNewBtn.addEventListener('click', () => openNewTaskDrawer('todo'));
+    }
+  </script>
+</body></html>

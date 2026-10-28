@@ -1,26 +1,145 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+/*
+ * Fundação visual do PsicoTask (tema claro).
+ * Tokens de cor seguem docs/frontend-reference/DESIGN.md (front matter).
+ * Nomes seguem a convenção usada em reference.html para facilitar a adaptação
+ * (ex.: bg-surface-container-low, text-on-surface, bg-primary-container).
+ */
 
+/* Fonte: a variável --font-plus-jakarta-sans é definida por next/font no <html>. */
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans:
+    var(--font-plus-jakarta-sans), ui-sans-serif, system-ui, -apple-system,
+    "Segoe UI", sans-serif;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+/* `static` garante que todos os tokens fiquem disponíveis como CSS variables. */
+@theme static {
+  /* Superfícies */
+  --color-background: #f8f9ff;
+  --color-surface: #f8f9ff;
+  --color-surface-container-lowest: #ffffff;
+  --color-surface-container-low: #eff4ff;
+  --color-surface-container: #e6eeff;
+  --color-surface-container-high: #dce9ff;
+  --color-surface-container-highest: #d5e3fc;
+
+  /* Texto e contornos */
+  --color-on-surface: #0d1c2e;
+  --color-on-surface-variant: #414750;
+  --color-outline: #727781;
+  --color-outline-variant: #c1c7d2;
+
+  /* Primária */
+  --color-primary: #003e6f;
+  --color-on-primary: #ffffff;
+  --color-primary-container: #005696;
+  --color-primary-fixed: #d2e4ff;
+  --color-primary-fixed-dim: #a1c9ff;
+
+  /* Secundária */
+  --color-secondary: #7d5700;
+  --color-secondary-container: #fdc662;
+
+  /* Terciária */
+  --color-tertiary: #004540;
+  --color-tertiary-container: #005f58;
+  --color-tertiary-fixed: #9cf2e8;
+
+  /* Erro */
+  --color-error: #ba1a1a;
+  --color-error-container: #ffdad6;
+
+  /* Raios semânticos (a escala padrão do Tailwind é preservada) */
+  --radius-control: 0.75rem;
+  --radius-card: 1rem;
+  --radius-pill: 9999px;
+
+  /* Hierarquia tipográfica */
+  --text-headline-xl: 2.25rem;
+  --text-headline-xl--line-height: 2.75rem;
+  --text-headline-xl--letter-spacing: -0.025em;
+  --text-headline-xl--font-weight: 700;
+
+  --text-headline-lg: 1.75rem;
+  --text-headline-lg--line-height: 2.25rem;
+  --text-headline-lg--letter-spacing: -0.02em;
+  --text-headline-lg--font-weight: 700;
+
+  --text-headline-lg-mobile: 1.375rem;
+  --text-headline-lg-mobile--line-height: 1.875rem;
+  --text-headline-lg-mobile--letter-spacing: -0.015em;
+  --text-headline-lg-mobile--font-weight: 700;
+
+  --text-headline-md: 1.25rem;
+  --text-headline-md--line-height: 1.75rem;
+  --text-headline-md--letter-spacing: -0.015em;
+  --text-headline-md--font-weight: 600;
+
+  --text-headline-sm: 1.125rem;
+  --text-headline-sm--line-height: 1.5rem;
+  --text-headline-sm--font-weight: 600;
+
+  --text-body-lg: 1rem;
+  --text-body-lg--line-height: 1.625rem;
+
+  --text-body-md: 0.875rem;
+  --text-body-md--line-height: 1.375rem;
+
+  --text-body-sm: 0.8125rem;
+  --text-body-sm--line-height: 1.25rem;
+
+  --text-label-lg: 0.875rem;
+  --text-label-lg--line-height: 1.25rem;
+  --text-label-lg--letter-spacing: 0.01em;
+  --text-label-lg--font-weight: 600;
+
+  --text-label-md: 0.75rem;
+  --text-label-md--line-height: 1rem;
+  --text-label-md--letter-spacing: 0.02em;
+  --text-label-md--font-weight: 600;
+
+  --text-label-sm: 0.6875rem;
+  --text-label-sm--line-height: 0.875rem;
+  --text-label-sm--letter-spacing: 0.04em;
+  --text-label-sm--font-weight: 700;
+}
+
+@layer base {
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
   }
-}
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  html {
+    color-scheme: light;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+    min-height: 100dvh;
+    background-color: var(--color-background);
+    color: var(--color-on-surface);
+    font-family: var(--font-sans);
+    font-size: var(--text-body-lg);
+    line-height: var(--text-body-lg--line-height);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-primary-container);
+    outline-offset: 2px;
+  }
+
+  ::selection {
+    background-color: var(--color-primary-container);
+    color: var(--color-on-primary);
+  }
 }

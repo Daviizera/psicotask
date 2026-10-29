@@ -25,7 +25,12 @@ type ItemDeNavegacao = {
 const NAVEGACAO: ItemDeNavegacao[] = [
   { rotulo: "Resumo", titulo: "Resumo da rotina", href: "/", icone: <IconeResumo /> },
   { rotulo: "Tarefas", titulo: "Tarefas", href: "/tarefas", icone: <IconeTarefas /> },
-  { rotulo: "Compromissos", titulo: "Compromissos", icone: <IconeCompromissos /> },
+  {
+    rotulo: "Compromissos",
+    titulo: "Compromissos",
+    href: "/compromissos",
+    icone: <IconeCompromissos />,
+  },
   { rotulo: "Contextos", titulo: "Contextos", href: "/contextos", icone: <IconeContextos /> },
   { rotulo: "Perfil", titulo: "Perfil", icone: <IconePerfil /> },
 ];

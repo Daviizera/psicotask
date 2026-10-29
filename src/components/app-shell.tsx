@@ -2,6 +2,7 @@
 
 import {
   createContext,
+  useCallback,
   useContext,
   useEffect,
   useRef,
@@ -32,7 +33,7 @@ const NAVEGACAO: ItemDeNavegacao[] = [
     icone: <IconeCompromissos />,
   },
   { rotulo: "Contextos", titulo: "Contextos", href: "/contextos", icone: <IconeContextos /> },
-  { rotulo: "Perfil", titulo: "Perfil", icone: <IconePerfil /> },
+  { rotulo: "Perfil", titulo: "Perfil", href: "/perfil", icone: <IconePerfil /> },
 ];
 
 type EstadoDoPerfil =
@@ -47,7 +48,15 @@ export function usePsicologoAutenticado(): Psychologist | null {
   return useContext(PsicologoContext);
 }
 
-function iniciais(nome: string): string {
+// Permite que uma página aplique ao shell o Perfil devolvido pela API após uma
+// edição, sem nova consulta a /api/auth/me.
+const AtualizarPsicologoContext = createContext<(psicologo: Psychologist) => void>(() => {});
+
+export function useAtualizarPsicologo(): (psicologo: Psychologist) => void {
+  return useContext(AtualizarPsicologoContext);
+}
+
+export function iniciais(nome: string): string {
   const partes = nome.trim().split(/\s+/).filter(Boolean);
   if (partes.length === 0) return "?";
   const primeira = partes[0][0];
@@ -129,9 +138,14 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
     setSaindo(false);
   }
 
+  const atualizarPsicologo = useCallback((psicologo: Psychologist) => {
+    setPerfil({ tipo: "carregado", psicologo });
+  }, []);
+
   const psicologo = perfil.tipo === "carregado" ? perfil.psicologo : null;
 
   return (
+    <AtualizarPsicologoContext.Provider value={atualizarPsicologo}>
     <PsicologoContext.Provider value={psicologo}>
       <div className="flex min-h-full flex-1">
         {menuAberto && (
@@ -295,6 +309,7 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
         </div>
       </div>
     </PsicologoContext.Provider>
+    </AtualizarPsicologoContext.Provider>
   );
 }
 

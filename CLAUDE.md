@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-PsicoTask: a Next.js 16 (App Router) + Prisma 7 + PostgreSQL app for psychologists to manage contexts, tasks and appointments. The backend (Route Handlers under `src/app/api/`) is done; the frontend is being built in the same app (`src/app/page.tsx` is still the create-next-app placeholder). Code, comments, API messages and domain names are in Portuguese (`tarefas`, `contextos`, `compromissos`, `resumo`, `psicologos`, `perfil`); keep that convention.
+PsicoTask: a Next.js 16 (App Router) + Prisma 7 + PostgreSQL app for psychologists to manage contexts, tasks and appointments. The backend (Route Handlers under `src/app/api/`) is done; the frontend lives in the same app: `src/app/login/page.tsx` plus the authenticated area under `src/app/(app)/` (layout + `AppShell`), whose homepage `src/app/(app)/page.tsx` is the Resumo da rotina, alongside `contextos/`, `tarefas/`, `compromissos/` and `perfil/`. Code, comments, API messages and domain names are in Portuguese (`tarefas`, `contextos`, `compromissos`, `resumo`, `psicologos`, `perfil`); keep that convention.
 
 `docs/frontend-handoff.md` is the authoritative API contract (request/response shapes, status codes, error messages, auth flow). `prisma/README.md` documents DB, seed and migration details. Read them before changing endpoints or schema.
 

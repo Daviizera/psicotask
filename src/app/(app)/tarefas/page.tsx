@@ -295,15 +295,19 @@ export default function TarefasPage() {
         </button>
       </header>
 
-      <div aria-live="polite" className="empty:hidden">
-        {aviso && (
-          <p
-            className={`rounded-control border px-3.5 py-3 text-body-md ${
-              aviso.erro
-                ? "border-error/30 bg-error-container text-error"
-                : "border-tertiary/20 bg-tertiary-fixed/40 text-tertiary"
-            }`}
-          >
+      {/* Regiões sempre montadas: vazias, saem do fluxo visual (sr-only) mas
+          permanecem na árvore de acessibilidade para que a mensagem inserida
+          seja anunciada. Sucesso é educado; erro usa role="alert". */}
+      <div aria-live="polite" className="empty:sr-only">
+        {aviso && !aviso.erro && (
+          <p className="rounded-control border border-tertiary/20 bg-tertiary-fixed/40 px-3.5 py-3 text-body-md text-tertiary">
+            {aviso.texto}
+          </p>
+        )}
+      </div>
+      <div role="alert" className="empty:sr-only">
+        {aviso?.erro && (
+          <p className="rounded-control border border-error/30 bg-error-container px-3.5 py-3 text-body-md text-error">
             {aviso.texto}
           </p>
         )}
@@ -589,7 +593,7 @@ function CartaoTarefa({
             </span>
             {atrasada && (
               <span className="rounded-pill bg-error-container/70 px-1.5 text-label-sm">
-                Atrasada
+                Em atraso
               </span>
             )}
             {venceHoje && (

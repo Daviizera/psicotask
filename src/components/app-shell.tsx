@@ -12,6 +12,7 @@ import {
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 
+import { ehPerfil } from "@/components/perfil/perfil";
 import type { Psychologist } from "@/modules/psicologos/types/psychologist.types";
 
 type ItemDeNavegacao = {
@@ -89,8 +90,10 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
           setPerfil({ tipo: "erro" });
           return;
         }
-        const psicologo = (await response.json()) as Psychologist;
-        setPerfil({ tipo: "carregado", psicologo });
+        // /api/auth/me devolve o mesmo Perfil público de /api/perfil.
+        const corpo: unknown = await response.json().catch(() => null);
+        if (controller.signal.aborted) return;
+        setPerfil(ehPerfil(corpo) ? { tipo: "carregado", psicologo: corpo } : { tipo: "erro" });
       })
       .catch(() => {
         if (!controller.signal.aborted) setPerfil({ tipo: "erro" });

@@ -4,6 +4,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 
 import { usePsicologoAutenticado } from "@/components/app-shell";
+import { ehCompromisso } from "@/components/compromissos/compromissos";
 import type { Appointment } from "@/modules/compromissos/types/appointment.types";
 import type { RoutineSummary } from "@/modules/resumo/types/routine-summary.types";
 
@@ -27,7 +28,8 @@ function ehResumo(valor: unknown): valor is RoutineSummary {
   return (
     typeof tarefasPendentes === "number" &&
     typeof tarefasPrioritarias === "number" &&
-    Array.isArray(proximosCompromissos)
+    Array.isArray(proximosCompromissos) &&
+    proximosCompromissos.every(ehCompromisso)
   );
 }
 
